@@ -1,13 +1,19 @@
 import { useState } from 'react';
 import {
-  RotateCcw, MousePointer2, Save, MoreHorizontal, X, ChevronDown, ChevronLeft,
+  RotateCcw, MousePointer2, Save, MoreHorizontal, X, ChevronDown,
   Laptop, UnfoldHorizontal, UnfoldVertical, Scan, Square, Eye, Image, Move,
-  Zap, RotateCw, Maximize, WandSparkles, Sparkles, Paperclip, Figma, Send, CodeXml
+  Zap, RotateCw, Maximize, WandSparkles, Sparkles, Paperclip, Figma, Send,
+  AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter, Layers, Circle,
+  Droplet, Sun, Contrast, FlipHorizontal, GripVertical, Hash
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
+import { HexColorPicker } from 'react-colorful';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
 
 type TabMode = 'EDIT' | 'PROMPT' | 'CODE';
 
@@ -26,6 +32,57 @@ export const PropertyInspector = () => {
   const [perspective, setPerspective] = useState(0);
   const [promptText, setPromptText] = useState('');
   const [codeText, setCodeText] = useState('<h2 class="text-[18px] md:text-[20px] font-semibold tracking-tight pr-2 pb-3 pl-2">Layers</h2>');
+  
+  // New states
+  const [bgColor, setBgColor] = useState<string | null>(null);
+  const [borderColor, setBorderColor] = useState<string | null>(null);
+  const [ringColor, setRingColor] = useState<string | null>(null);
+  const [textColor, setTextColor] = useState<string | null>(null);
+  const [blur, setBlur] = useState(0);
+  const [backdropBlur, setBackdropBlur] = useState(0);
+  const [hueRotate, setHueRotate] = useState(0);
+  const [saturation, setSaturation] = useState(100);
+  const [brightness, setBrightness] = useState(100);
+  const [grayscale, setGrayscale] = useState(0);
+  const [invert, setInvert] = useState(0);
+  const [borderRadius, setBorderRadius] = useState({ all: 0, t: 0, r: 0, b: 0, l: 0 });
+  const [borderRadiusTab, setBorderRadiusTab] = useState<'all' | 't' | 'r' | 'b' | 'l'>('all');
+  const [inlineCSS, setInlineCSS] = useState('');
+  const [elementId, setElementId] = useState('');
+  const [openAccordions, setOpenAccordions] = useState<string[]>(['family', 'link', 'text', 'margin', 'padding']);
+
+  const ColorButton = ({ 
+    color, 
+    onChange, 
+    label 
+  }: { 
+    color: string | null; 
+    onChange: (color: string | null) => void; 
+    label: string;
+  }) => (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className={`h-7 flex items-center gap-2 px-2 py-1 text-xs rounded-md border border-border bg-card ${!color ? 'opacity-30' : ''}`}>
+          <div 
+            className="w-4 h-4 rounded-full border border-border" 
+            style={{ backgroundColor: color || 'hsl(var(--muted))' }}
+          />
+          <span className="text-xs truncate">{color ? label : `No ${label}`}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-3" align="start">
+        <HexColorPicker color={color || '#ffffff'} onChange={onChange} />
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="w-full mt-2 text-xs"
+          onClick={() => onChange(null)}
+        >
+          Clear
+        </Button>
+      </PopoverContent>
+    </Popover>
+  );
 
   return (
     <div className="bg-card border-border rounded-2xl shadow-[var(--shadow-panel)] w-80 max-h-[600px] flex flex-col">
@@ -34,54 +91,27 @@ export const PropertyInspector = () => {
         <div className="flex items-center gap-2">
           <h3 className="text-xs uppercase font-medium text-muted-foreground">h2</h3>
           <div className="flex border border-border rounded-md overflow-hidden">
-            <button 
-              onClick={() => setActiveTab('EDIT')}
-              className={`px-2 py-1 text-[8px] font-medium transition-colors cursor-pointer ${
-                activeTab === 'EDIT' 
-                  ? 'bg-primary hover:bg-primary/90 text-primary-foreground' 
-                  : 'bg-card text-muted-foreground hover:bg-secondary'
-              }`}
-            >
-              EDIT
-            </button>
-            <button 
-              onClick={() => setActiveTab('PROMPT')}
-              className={`px-2 py-1 text-[8px] font-medium transition-colors border-l border-border cursor-pointer ${
-                activeTab === 'PROMPT' 
-                  ? 'bg-primary hover:bg-primary/90 text-primary-foreground' 
-                  : 'bg-card text-muted-foreground hover:bg-secondary'
-              }`}
-            >
-              PROMPT
-            </button>
-            <button 
-              onClick={() => setActiveTab('CODE')}
-              className={`px-2 py-1 text-[8px] font-medium transition-colors border-l border-border cursor-pointer ${
-                activeTab === 'CODE' 
-                  ? 'bg-primary hover:bg-primary/90 text-primary-foreground' 
-                  : 'bg-card text-muted-foreground hover:bg-secondary'
-              }`}
-            >
-              CODE
-            </button>
+            {(['EDIT', 'PROMPT', 'CODE'] as TabMode[]).map((tab) => (
+              <button 
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-2 py-1 text-[8px] font-medium transition-colors cursor-pointer ${
+                  activeTab === tab 
+                    ? 'bg-primary hover:bg-primary/90 text-primary-foreground' 
+                    : 'bg-card text-muted-foreground hover:bg-secondary'
+                } ${tab !== 'EDIT' ? 'border-l border-border' : ''}`}
+              >
+                {tab}
+              </button>
+            ))}
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full">
-            <RotateCcw className="w-3 h-3" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full">
-            <MousePointer2 className="w-3 h-3" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full">
-            <Save className="w-3 h-3" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full">
-            <MoreHorizontal className="w-3 h-3" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full">
-            <X className="w-3 h-3" />
-          </Button>
+          {[RotateCcw, MousePointer2, Save, MoreHorizontal, X].map((Icon, i) => (
+            <Button key={i} variant="ghost" size="icon" className="h-6 w-6 rounded-full">
+              <Icon className="w-3 h-3" />
+            </Button>
+          ))}
         </div>
       </div>
 
@@ -101,36 +131,22 @@ export const PropertyInspector = () => {
                   className="w-full resize-none min-h-[100px] max-h-[200px] overflow-y-auto text-xs hover:bg-secondary/50 pb-[40px] rounded-2xl"
                 />
                 <div className="absolute bottom-[16px] left-[9px] z-10 flex gap-1">
-                  <button 
-                    type="button"
-                    className="flex p-2 py-1 gap-2 items-center text-[10px] rounded-lg bg-card hover:bg-secondary border border-border hover:border-primary/50 shadow-sm"
-                    title="Open Prompt Builder"
-                  >
-                    <WandSparkles className="h-3 w-3" />
-                  </button>
-                  <button 
-                    type="button"
-                    className="flex items-center rounded-lg bg-card border border-border hover:border-primary/50 shadow-sm p-2 py-1 gap-2 text-[10px] flex-shrink-0 hover:bg-secondary"
-                    title="Select AI Model"
-                  >
-                    <Sparkles className="h-3 w-3" />
-                    GPT-5
-                    <ChevronDown className="h-3 w-3 ml-0.5" />
-                  </button>
-                  <button 
-                    type="button"
-                    className="flex p-2 py-1 gap-2 items-center text-[10px] rounded-lg bg-card hover:bg-secondary border border-border hover:border-primary/50 shadow-sm"
-                    title="Attach Files (Max 2)"
-                  >
-                    <Paperclip className="h-3 w-3" />
-                  </button>
-                  <button 
-                    type="button"
-                    className="flex p-2 py-1 items-center text-[10px] rounded-lg bg-card hover:bg-secondary border border-border hover:border-primary/50 shadow-sm"
-                    title="Import from Figma"
-                  >
-                    <Figma className="h-3 w-3" />
-                  </button>
+                  {[
+                    { icon: WandSparkles, title: 'Prompt Builder' },
+                    { icon: Sparkles, title: 'AI Model', label: 'GPT-5' },
+                    { icon: Paperclip, title: 'Attach Files' },
+                    { icon: Figma, title: 'Import from Figma' },
+                  ].map(({ icon: Icon, title, label }) => (
+                    <button 
+                      key={title}
+                      type="button"
+                      className="flex items-center rounded-lg bg-card border border-border hover:border-primary/50 shadow-sm p-2 py-1 gap-1 text-[10px] hover:bg-secondary"
+                      title={title}
+                    >
+                      <Icon className="h-3 w-3" />
+                      {label && <>{label}<ChevronDown className="h-3 w-3" /></>}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
@@ -147,26 +163,15 @@ export const PropertyInspector = () => {
 
             <div className="flex flex-col gap-2">
               <div className="flex gap-2 mt-2">
-                <Button 
-                  type="submit" 
-                  disabled={!promptText.trim()}
-                  className="flex p-2 px-3 gap-2 items-center"
-                >
+                <Button type="submit" disabled={!promptText.trim()} className="flex p-2 px-3 gap-2 items-center">
                   <Send className="w-3 h-3" />
                   Apply Changes
                 </Button>
-                <Button 
-                  type="button" 
-                  variant="outline"
-                  onClick={() => setPromptText('')}
-                  className="p-2 px-3"
-                >
+                <Button type="button" variant="outline" onClick={() => setPromptText('')} className="p-2 px-3">
                   Cancel
                 </Button>
               </div>
-              <p className="text-[10px] text-muted-foreground">
-                Costs 1 prompt. Don't forget to save changes.
-              </p>
+              <p className="text-[10px] text-muted-foreground">Costs 1 prompt. Don't forget to save changes.</p>
             </div>
           </form>
         ) : activeTab === 'CODE' ? (
@@ -178,314 +183,463 @@ export const PropertyInspector = () => {
               spellCheck={false}
             />
             <div className="flex items-center justify-between border-t border-border py-2">
+              <span className="text-[10px] text-muted-foreground">No changes</span>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-muted-foreground">No changes</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button 
-                  variant="outline"
-                  disabled
-                  className="text-[10px] h-7 px-2"
-                >
-                  Reset
-                </Button>
-                <Button 
-                  disabled
-                  className="text-[10px] h-7 px-2"
-                >
-                  Apply
-                </Button>
+                <Button variant="outline" disabled className="text-[10px] h-7 px-2">Reset</Button>
+                <Button disabled className="text-[10px] h-7 px-2">Apply</Button>
               </div>
             </div>
           </div>
         ) : (
-          <div className="space-y-3">
-          {/* Breakpoint Selector */}
-          <div className="flex items-center justify-between">
-            <div className="flex border border-border rounded-md overflow-hidden h-6">
-              <button className="px-2 text-[9px] transition-[var(--transition-smooth)] bg-primary text-primary-foreground">AUTO</button>
-              <button className="px-2 text-[9px] transition-[var(--transition-smooth)] bg-card text-muted-foreground border-l border-border hover:bg-secondary">*</button>
-              <button className="px-2 text-[9px] transition-[var(--transition-smooth)] bg-accent/20 text-accent-foreground border-l border-border">MD</button>
+          <div className="space-y-2">
+            {/* Breakpoint Selector */}
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex border border-border rounded-md overflow-hidden h-6">
+                {['AUTO', '*', 'MD'].map((bp, i) => (
+                  <button 
+                    key={bp}
+                    className={`px-2 text-[9px] transition-[var(--transition-smooth)] ${
+                      bp === 'AUTO' ? 'bg-primary text-primary-foreground' : 
+                      bp === 'MD' ? 'bg-accent/20 text-accent-foreground' : 
+                      'bg-card text-muted-foreground hover:bg-secondary'
+                    } ${i > 0 ? 'border-l border-border' : ''}`}
+                  >
+                    {bp}
+                  </button>
+                ))}
+              </div>
+              <span className="text-[10px] text-muted-foreground ml-2 flex items-center gap-1">
+                <Laptop className="w-3 h-3" />
+                <span>Auto Breakpoint</span>
+              </span>
             </div>
-            <span className="text-[10px] text-muted-foreground ml-2 flex items-center gap-1">
-              <Laptop className="w-3 h-3" />
-              <span>Auto Breakpoint</span>
-            </span>
+
+            <Accordion type="multiple" value={openAccordions} onValueChange={setOpenAccordions} className="space-y-1">
+              {/* Family Elements */}
+              <AccordionItem value="family" className="border-none">
+                <AccordionTrigger className="py-1.5 text-xs font-medium text-muted-foreground hover:no-underline">
+                  Family Elements
+                </AccordionTrigger>
+                <AccordionContent className="pb-2">
+                  <div className="flex flex-wrap items-center gap-1">
+                    {['div', '├', 'div', 'div', 'p'].map((el, i) => (
+                      el === '├' ? (
+                        <span key={i} className="text-muted-foreground text-[10px]">{el}</span>
+                      ) : (
+                        <Button key={i} variant="outline" size="sm" className="h-6 text-[11px] px-1.5 py-0.5">{el}</Button>
+                      )
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Link */}
+              <AccordionItem value="link" className="border-none">
+                <AccordionTrigger className="py-1.5 text-xs font-medium text-muted-foreground hover:no-underline">
+                  Link
+                </AccordionTrigger>
+                <AccordionContent className="pb-2">
+                  <Input type="text" placeholder="/page or url..." className="h-8 text-xs" />
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Text Content */}
+              <AccordionItem value="text" className="border-none">
+                <AccordionTrigger className="py-1.5 text-xs font-medium text-muted-foreground hover:no-underline">
+                  Text Content
+                </AccordionTrigger>
+                <AccordionContent className="pb-2">
+                  <Textarea placeholder="Enter text content..." rows={1} className="resize-none text-xs" defaultValue="Layers" />
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Tailwind Classes */}
+              <AccordionItem value="tailwind" className="border-none">
+                <AccordionTrigger className="py-1.5 text-xs font-medium text-muted-foreground hover:no-underline">
+                  Tailwind Classes
+                </AccordionTrigger>
+                <AccordionContent className="pb-2">
+                  <Textarea
+                    placeholder="Enter Tailwind classes..."
+                    rows={1}
+                    className="resize-none text-xs opacity-50 cursor-not-allowed"
+                    disabled
+                    defaultValue="px-2 pb-3 text-[18px] md:text-[20px] font-semibold tracking-tight"
+                  />
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Inline CSS */}
+              <AccordionItem value="inline-css" className="border-none">
+                <AccordionTrigger className="py-1.5 text-xs font-medium text-muted-foreground hover:no-underline">
+                  <div className="flex items-center gap-1.5">
+                    <span>Inline CSS</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="pb-2">
+                  <Textarea
+                    placeholder="color: red; font-size: 16px;"
+                    value={inlineCSS}
+                    onChange={(e) => setInlineCSS(e.target.value)}
+                    rows={2}
+                    className="resize-none text-xs font-mono"
+                  />
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Element ID */}
+              <AccordionItem value="element-id" className="border-none">
+                <AccordionTrigger className="py-1.5 text-xs font-medium text-muted-foreground hover:no-underline">
+                  <div className="flex items-center gap-1.5">
+                    <Hash className="w-3 h-3" />
+                    <span>Element ID</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="pb-2">
+                  <Input 
+                    type="text" 
+                    placeholder="unique-element-id" 
+                    value={elementId}
+                    onChange={(e) => setElementId(e.target.value)}
+                    className="h-8 text-xs font-mono" 
+                  />
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Margin */}
+              <AccordionItem value="margin" className="border-none">
+                <AccordionTrigger className="py-1.5 text-xs font-medium text-muted-foreground hover:no-underline">
+                  <div className="flex items-center gap-1.5">
+                    <Scan className="w-3 h-3" />
+                    <span>Margin</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="pb-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <IconInput icon={<UnfoldHorizontal className="w-3 h-3" />} />
+                    <IconInput icon={<UnfoldVertical className="w-3 h-3" />} />
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Padding */}
+              <AccordionItem value="padding" className="border-none">
+                <AccordionTrigger className="py-1.5 text-xs font-medium text-muted-foreground hover:no-underline">
+                  <div className="flex items-center gap-1.5">
+                    <Square className="w-3 h-3" />
+                    <span>Padding</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="pb-2">
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <LabeledInput label="L" defaultValue="2" />
+                      <LabeledInput label="T" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <LabeledInput label="R" defaultValue="2" />
+                      <LabeledInput label="B" defaultValue="3" />
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Position */}
+              <AccordionItem value="position" className="border-none">
+                <AccordionTrigger className="py-1.5 text-xs font-medium text-muted-foreground hover:no-underline">
+                  <div className="flex items-center gap-1.5">
+                    <GripVertical className="w-3 h-3" />
+                    <span>Position</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="pb-2 space-y-2">
+                  <Select defaultValue="relative">
+                    <SelectTrigger className="h-7 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {['static', 'relative', 'absolute', 'fixed', 'sticky'].map(pos => (
+                        <SelectItem key={pos} value={pos}>{pos.charAt(0).toUpperCase() + pos.slice(1)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <LabeledInput label="L" />
+                    <LabeledInput label="T" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <LabeledInput label="R" />
+                    <LabeledInput label="B" />
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Size */}
+              <AccordionItem value="size" className="border-none">
+                <AccordionTrigger className="py-1.5 text-xs font-medium text-muted-foreground hover:no-underline">
+                  Size
+                </AccordionTrigger>
+                <AccordionContent className="pb-2 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <IconInput icon={<UnfoldHorizontal className="w-3 h-3" />} placeholder="Width" />
+                    <IconInput icon={<UnfoldVertical className="w-3 h-3" />} placeholder="Height" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <LabeledInput label="Max W" />
+                    <LabeledInput label="Max H" />
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Spacing */}
+              <AccordionItem value="spacing" className="border-none">
+                <AccordionTrigger className="py-1.5 text-xs font-medium text-muted-foreground hover:no-underline">
+                  Spacing
+                </AccordionTrigger>
+                <AccordionContent className="pb-2 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <LabeledInput label="Space X" />
+                    <LabeledInput label="Space Y" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <LabeledInput label="Gap X" />
+                    <LabeledInput label="Gap Y" />
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Alignment */}
+              <AccordionItem value="alignment" className="border-none">
+                <AccordionTrigger className="py-1.5 text-xs font-medium text-muted-foreground hover:no-underline">
+                  <div className="flex items-center gap-1.5">
+                    <AlignHorizontalJustifyCenter className="w-3 h-3" />
+                    <span>Alignment</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="pb-2 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Select defaultValue="default">
+                      <SelectTrigger className="h-7 text-xs">
+                        <SelectValue placeholder="Justify" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {['Default', 'Start', 'Center', 'End', 'Between', 'Around', 'Evenly'].map(v => (
+                          <SelectItem key={v} value={v.toLowerCase()}>{v}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select defaultValue="default">
+                      <SelectTrigger className="h-7 text-xs">
+                        <SelectValue placeholder="Align" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {['Default', 'Start', 'Center', 'End', 'Stretch', 'Baseline'].map(v => (
+                          <SelectItem key={v} value={v.toLowerCase()}>{v}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Typography */}
+              <AccordionItem value="typography" className="border-none">
+                <AccordionTrigger className="py-1.5 text-xs font-medium text-muted-foreground hover:no-underline">
+                  Typography
+                </AccordionTrigger>
+                <AccordionContent className="pb-2 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Select defaultValue="inter">
+                      <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="inter">Inter</SelectItem>
+                        <SelectItem value="roboto">Roboto</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select defaultValue="default">
+                      <SelectTrigger className="h-7 text-xs opacity-30"><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="default">Default</SelectItem></SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Select defaultValue="semibold">
+                      <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="semibold">Semibold</SelectItem>
+                        <SelectItem value="bold">Bold</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select defaultValue="tight">
+                      <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="tight">Tight</SelectItem>
+                        <SelectItem value="normal">Normal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <ColorButton color={textColor} onChange={setTextColor} label="Color" />
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Appearance */}
+              <AccordionItem value="appearance" className="border-none">
+                <AccordionTrigger className="py-1.5 text-xs font-medium text-muted-foreground hover:no-underline">
+                  <div className="flex items-center gap-1.5">
+                    <Eye className="w-3 h-3" />
+                    <span>Appearance</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="pb-2 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Select defaultValue="opacity">
+                      <SelectTrigger className="h-7 text-xs opacity-30"><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="opacity">Opacity</SelectItem></SelectContent>
+                    </Select>
+                    <Select defaultValue="blend">
+                      <SelectTrigger className="h-7 text-xs opacity-30"><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="blend">Blend</SelectItem></SelectContent>
+                    </Select>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Background */}
+              <AccordionItem value="background" className="border-none">
+                <AccordionTrigger className="py-1.5 text-xs font-medium text-muted-foreground hover:no-underline">
+                  Background
+                </AccordionTrigger>
+                <AccordionContent className="pb-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <ColorButton color={bgColor} onChange={setBgColor} label="Color" />
+                    <button className="h-7 flex items-center gap-2 px-2 py-1 text-xs rounded-md border border-border bg-card opacity-30">
+                      <div className="w-4 h-4 rounded border border-border bg-muted flex items-center justify-center">
+                        <Image className="w-2.5 h-2.5 text-muted-foreground" />
+                      </div>
+                      <span className="text-xs truncate">No Image</span>
+                    </button>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Embed */}
+              <AccordionItem value="embed" className="border-none">
+                <AccordionTrigger className="py-1.5 text-xs font-medium text-muted-foreground hover:no-underline">
+                  Embed
+                </AccordionTrigger>
+                <AccordionContent className="pb-2">
+                  <button className="w-full h-7 flex items-center gap-2 px-2 py-1 text-xs rounded-md border border-border bg-card opacity-30">
+                    <Layers className="w-3 h-3 text-muted-foreground" />
+                    <span className="text-xs truncate">No Asset</span>
+                  </button>
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Border */}
+              <AccordionItem value="border" className="border-none">
+                <AccordionTrigger className="py-1.5 text-xs font-medium text-muted-foreground hover:no-underline">
+                  Border
+                </AccordionTrigger>
+                <AccordionContent className="pb-2 space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <ColorButton color={borderColor} onChange={setBorderColor} label="Border" />
+                    <ColorButton color={ringColor} onChange={setRingColor} label="Ring" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-muted-foreground mb-1.5 block">Rounded</span>
+                    <Tabs value={borderRadiusTab} onValueChange={(v) => setBorderRadiusTab(v as typeof borderRadiusTab)} className="w-full">
+                      <TabsList className="grid grid-cols-5 h-7">
+                        {['all', 't', 'r', 'b', 'l'].map(tab => (
+                          <TabsTrigger key={tab} value={tab} className="text-[10px] px-2">{tab.toUpperCase()}</TabsTrigger>
+                        ))}
+                      </TabsList>
+                    </Tabs>
+                    <SliderControl
+                      icon={<Circle className="w-2.5 h-2.5" />}
+                      label={`Radius ${borderRadiusTab.toUpperCase()}`}
+                      value={borderRadius[borderRadiusTab]}
+                      onChange={(v) => setBorderRadius(prev => ({ ...prev, [borderRadiusTab]: v }))}
+                      min={0}
+                      max={50}
+                      unit="px"
+                    />
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Effects */}
+              <AccordionItem value="effects" className="border-none">
+                <AccordionTrigger className="py-1.5 text-xs font-medium text-muted-foreground hover:no-underline">
+                  Effects
+                </AccordionTrigger>
+                <AccordionContent className="pb-2 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Select defaultValue="none">
+                      <SelectTrigger className="h-7 text-xs opacity-30"><SelectValue placeholder="Shadow" /></SelectTrigger>
+                      <SelectContent>
+                        {['None', 'SM', 'MD', 'LG', 'XL', '2XL'].map(v => (
+                          <SelectItem key={v} value={v.toLowerCase()}>{v}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <SliderControl icon={<Droplet className="w-2.5 h-2.5" />} label="Blur" value={blur} onChange={setBlur} min={0} max={100} unit="px" />
+                  <SliderControl icon={<Droplet className="w-2.5 h-2.5" />} label="Backdrop Blur" value={backdropBlur} onChange={setBackdropBlur} min={0} max={100} unit="px" />
+                  <SliderControl icon={<Contrast className="w-2.5 h-2.5" />} label="Hue Rotate" value={hueRotate} onChange={setHueRotate} min={0} max={360} unit="°" />
+                  <SliderControl icon={<Sun className="w-2.5 h-2.5" />} label="Saturation" value={saturation} onChange={setSaturation} min={0} max={200} unit="%" />
+                  <SliderControl icon={<Sun className="w-2.5 h-2.5" />} label="Brightness" value={brightness} onChange={setBrightness} min={0} max={200} unit="%" />
+                  <SliderControl icon={<FlipHorizontal className="w-2.5 h-2.5" />} label="Grayscale" value={grayscale} onChange={setGrayscale} min={0} max={100} unit="%" />
+                  <SliderControl icon={<FlipHorizontal className="w-2.5 h-2.5" />} label="Invert" value={invert} onChange={setInvert} min={0} max={100} unit="%" />
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Transforms */}
+              <AccordionItem value="transforms" className="border-none">
+                <AccordionTrigger className="py-1.5 text-xs font-medium text-muted-foreground hover:no-underline">
+                  Transforms
+                </AccordionTrigger>
+                <AccordionContent className="pb-2 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <SliderControl icon={<Move className="w-2.5 h-2.5" />} label="Translate X" value={translateX} onChange={setTranslateX} min={-200} max={200} unit="" />
+                    <SliderControl icon={<Move className="w-2.5 h-2.5" />} label="Translate Y" value={translateY} onChange={setTranslateY} min={-200} max={200} unit="" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <SliderControl icon={<Zap className="w-2.5 h-2.5" />} label="Skew X" value={skewX} onChange={setSkewX} min={-45} max={45} unit="°" />
+                    <SliderControl icon={<Zap className="w-2.5 h-2.5" />} label="Skew Y" value={skewY} onChange={setSkewY} min={-45} max={45} unit="°" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <SliderControl icon={<RotateCw className="w-2.5 h-2.5" />} label="Rotate" value={rotate} onChange={setRotate} min={-180} max={180} unit="°" />
+                    <SliderControl icon={<Maximize className="w-2.5 h-2.5" />} label="Scale" value={scale} onChange={setScale} min={0} max={200} unit="%" />
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* 3D Transform */}
+              <AccordionItem value="3d-transform" className="border-none">
+                <AccordionTrigger className="py-1.5 text-xs font-medium text-muted-foreground hover:no-underline">
+                  3D Transform
+                </AccordionTrigger>
+                <AccordionContent className="pb-2 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <SliderControl icon={<RotateCw className="w-2.5 h-2.5" />} label="3D Rotate X" value={rotateX} onChange={setRotateX} min={-180} max={180} unit="°" />
+                    <SliderControl icon={<RotateCw className="w-2.5 h-2.5" />} label="3D Rotate Y" value={rotateY} onChange={setRotateY} min={-180} max={180} unit="°" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <SliderControl icon={<RotateCw className="w-2.5 h-2.5" />} label="3D Rotate Z" value={rotateZ} onChange={setRotateZ} min={-180} max={180} unit="°" />
+                    <SliderControl 
+                      icon={<Maximize className="w-2.5 h-2.5" />} 
+                      label="Perspective" 
+                      value={perspective} 
+                      onChange={setPerspective} 
+                      min={0} 
+                      max={6} 
+                      unit=""
+                      valueLabel={perspective === 0 ? "Default" : perspective.toString()}
+                    />
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </div>
-
-          {/* Family Elements */}
-          <PropertySection title="Family Elements">
-            <div className="flex flex-wrap items-center gap-1">
-              <Button variant="outline" size="sm" className="h-6 text-[11px] px-1.5 py-0.5">
-                div
-              </Button>
-              <div className="text-muted-foreground text-[10px]">├</div>
-              <Button variant="outline" size="sm" className="h-6 text-[11px] px-1.5 py-0.5">
-                div
-              </Button>
-              <Button variant="outline" size="sm" className="h-6 text-[11px] px-1.5 py-0.5">
-                div
-              </Button>
-              <Button variant="outline" size="sm" className="h-6 text-[11px] px-1.5 py-0.5">
-                p
-              </Button>
-            </div>
-          </PropertySection>
-
-          {/* Link */}
-          <PropertySection title="Link">
-            <Input type="text" placeholder="/page or url..." className="h-8 text-xs" />
-          </PropertySection>
-
-          {/* Text Content */}
-          <PropertySection title="Text Content">
-            <Textarea
-              placeholder="Enter text content..."
-              rows={1}
-              className="resize-none text-xs"
-              defaultValue="Layers"
-            />
-          </PropertySection>
-
-          {/* Tailwind Classes */}
-          <PropertySection title="Tailwind Classes">
-            <Textarea
-              placeholder="Enter Tailwind classes..."
-              rows={1}
-              className="resize-none text-xs opacity-50 cursor-not-allowed"
-              disabled
-              defaultValue="px-2 pb-3 text-[18px] md:text-[20px] font-semibold tracking-tight"
-            />
-          </PropertySection>
-
-          {/* Margin */}
-          <PropertySection title="Margin" icon={<Scan className="w-3 h-3" />}>
-            <div className="grid grid-cols-2 gap-2">
-              <IconInput icon={<UnfoldHorizontal className="w-3 h-3" />} />
-              <IconInput icon={<UnfoldVertical className="w-3 h-3" />} />
-            </div>
-          </PropertySection>
-
-          {/* Padding */}
-          <PropertySection title="Padding" icon={<Square className="w-3 h-3" />}>
-            <div className="space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <LabeledInput label="L" defaultValue="2" />
-                <LabeledInput label="T" />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <LabeledInput label="R" defaultValue="2" />
-                <LabeledInput label="B" defaultValue="3" />
-              </div>
-            </div>
-          </PropertySection>
-
-          {/* Size */}
-          <PropertySection title="Size">
-            <div className="grid grid-cols-2 gap-2">
-              <IconInput icon={<UnfoldHorizontal className="w-3 h-3" />} />
-              <IconInput icon={<UnfoldVertical className="w-3 h-3" />} />
-            </div>
-          </PropertySection>
-
-          {/* Typography */}
-          <PropertySection title="Typography">
-            <div className="grid grid-cols-2 gap-2">
-              <Select defaultValue="inter">
-                <SelectTrigger className="h-7 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="inter">Inter</SelectItem>
-                  <SelectItem value="roboto">Roboto</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select defaultValue="default">
-                <SelectTrigger className="h-7 text-xs opacity-30">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="default">Default</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              <Select defaultValue="semibold">
-                <SelectTrigger className="h-7 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="semibold">Semibold</SelectItem>
-                  <SelectItem value="bold">Bold</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select defaultValue="tight">
-                <SelectTrigger className="h-7 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tight">Tight</SelectItem>
-                  <SelectItem value="normal">Normal</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </PropertySection>
-
-          {/* Appearance */}
-          <PropertySection title="Appearance" icon={<Eye className="w-3 h-3" />}>
-            <div className="grid grid-cols-2 gap-2">
-              <Select defaultValue="opacity">
-                <SelectTrigger className="h-7 text-xs opacity-30">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="opacity">Opacity</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select defaultValue="blend">
-                <SelectTrigger className="h-7 text-xs opacity-30">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="blend">Blend</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </PropertySection>
-
-          {/* Background */}
-          <PropertySection title="Background">
-            <div className="grid grid-cols-2 gap-2">
-              <button className="h-7 flex items-center gap-2 px-2 py-1 text-xs rounded-md border border-border bg-card opacity-30">
-                <div className="w-4 h-4 rounded-full border border-border bg-muted"></div>
-                <span className="text-xs truncate">No Color</span>
-              </button>
-              <button className="h-7 flex items-center gap-2 px-2 py-1 text-xs rounded-md border border-border bg-card opacity-30">
-                <div className="w-4 h-4 rounded border border-border bg-muted flex items-center justify-center">
-                  <Image className="w-2.5 h-2.5 text-muted-foreground" />
-                </div>
-                <span className="text-xs truncate">No Image</span>
-              </button>
-            </div>
-          </PropertySection>
-
-          {/* Transforms */}
-          <div className="border-t border-border pt-4 pb-2">
-            <PropertySection title="Transforms">
-              <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <Slider
-                    icon={<Move className="w-2.5 h-2.5" />}
-                    label="Translate X"
-                    value={translateX}
-                    onChange={setTranslateX}
-                    min={-200}
-                    max={200}
-                    unit=""
-                  />
-                  <Slider
-                    icon={<Move className="w-2.5 h-2.5" />}
-                    label="Translate Y"
-                    value={translateY}
-                    onChange={setTranslateY}
-                    min={-200}
-                    max={200}
-                    unit=""
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Slider
-                    icon={<Zap className="w-2.5 h-2.5" />}
-                    label="Skew X"
-                    value={skewX}
-                    onChange={setSkewX}
-                    min={-45}
-                    max={45}
-                    unit="°"
-                  />
-                  <Slider
-                    icon={<Zap className="w-2.5 h-2.5" />}
-                    label="Skew Y"
-                    value={skewY}
-                    onChange={setSkewY}
-                    min={-45}
-                    max={45}
-                    unit="°"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Slider
-                    icon={<RotateCw className="w-2.5 h-2.5" />}
-                    label="Rotate"
-                    value={rotate}
-                    onChange={setRotate}
-                    min={-180}
-                    max={180}
-                    unit="°"
-                  />
-                  <Slider
-                    icon={<Maximize className="w-2.5 h-2.5" />}
-                    label="Scale"
-                    value={scale}
-                    onChange={setScale}
-                    min={0}
-                    max={200}
-                    unit="%"
-                  />
-                </div>
-              </div>
-            </PropertySection>
-          </div>
-
-          {/* 3D Transform */}
-          <div className="border-t border-border pt-4 pb-2">
-            <PropertySection title="3D Transform">
-              <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <Slider
-                    icon={<RotateCw className="w-2.5 h-2.5" />}
-                    label="3D Rotate X"
-                    value={rotateX}
-                    onChange={setRotateX}
-                    min={-180}
-                    max={180}
-                    unit="°"
-                  />
-                  <Slider
-                    icon={<RotateCw className="w-2.5 h-2.5" />}
-                    label="3D Rotate Y"
-                    value={rotateY}
-                    onChange={setRotateY}
-                    min={-180}
-                    max={180}
-                    unit="°"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Slider
-                    icon={<RotateCw className="w-2.5 h-2.5" />}
-                    label="3D Rotate Z"
-                    value={rotateZ}
-                    onChange={setRotateZ}
-                    min={-180}
-                    max={180}
-                    unit="°"
-                  />
-                  <Slider
-                    icon={<Maximize className="w-2.5 h-2.5" />}
-                    label="Perspective"
-                    value={perspective}
-                    onChange={setPerspective}
-                    min={0}
-                    max={6}
-                    unit=""
-                    valueLabel={perspective === 0 ? "Default" : perspective.toString()}
-                  />
-                </div>
-              </div>
-            </PropertySection>
-          </div>
-        </div>
         )}
       </div>
     </div>
@@ -493,34 +647,12 @@ export const PropertyInspector = () => {
 };
 
 // Helper Components
-const PropertySection = ({ 
-  title, 
-  icon, 
-  children 
-}: { 
-  title: string; 
-  icon?: React.ReactNode; 
-  children: React.ReactNode;
-}) => (
-  <div>
-    <div className="flex items-center justify-between mb-2">
-      <label className="text-xs font-medium text-muted-foreground">{title}</label>
-      {icon && (
-        <button className="text-muted-foreground hover:text-foreground rounded-full p-1">
-          {icon}
-        </button>
-      )}
-    </div>
-    {children}
-  </div>
-);
-
-const IconInput = ({ icon }: { icon: React.ReactNode }) => (
+const IconInput = ({ icon, placeholder }: { icon: React.ReactNode; placeholder?: string }) => (
   <div className="relative">
     <div className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-muted-foreground pointer-events-none opacity-30">
       {icon}
     </div>
-    <Input type="text" className="h-8 text-xs pl-8" />
+    <Input type="text" placeholder={placeholder} className="h-8 text-xs pl-8" />
   </div>
 );
 
@@ -529,11 +661,11 @@ const LabeledInput = ({ label, defaultValue }: { label: string; defaultValue?: s
     <span className={`absolute left-4 top-1/2 transform -translate-y-1/2 text-xs font-light text-foreground pointer-events-none ${!defaultValue ? 'opacity-30' : ''}`}>
       {label}
     </span>
-    <Input type="text" defaultValue={defaultValue} className="h-8 text-xs pl-8" />
+    <Input type="text" defaultValue={defaultValue} className="h-8 text-xs pl-12" />
   </div>
 );
 
-const Slider = ({ 
+const SliderControl = ({ 
   icon, 
   label, 
   value, 
@@ -568,7 +700,7 @@ const Slider = ({
       max={max} 
       value={value}
       onChange={(e) => onChange(Number(e.target.value))}
-      className="w-full h-1 bg-secondary rounded-lg appearance-none cursor-pointer" 
+      className="w-full h-1 bg-secondary rounded-lg appearance-none cursor-pointer slider-thumb" 
     />
   </div>
 );
