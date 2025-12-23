@@ -1,390 +1,240 @@
-import React, { useMemo, useCallback, memo } from 'react';
+import React, { useCallback, useMemo, memo } from 'react';
 import {
-  RotateCcw, MousePointer2, X, ChevronDown,
-  Square, Eye, Move, RotateCw, Maximize, 
-  Send, Circle, Droplet, Type, Copy, Check
+  Type, Droplet, Square, Move, Copy, Check, MousePointer2, Layers,
+  AlignLeft, AlignCenter, AlignRight, AlignJustify, Eye, EyeOff
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Textarea } from './ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Slider } from './ui/slider'; // Feltételezve, hogy a shadcn slider támogatja a tömböt
+import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
-import { HexColorPicker } from 'react-colorful';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
-import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
-import { useElement, defaultElementState } from '@/contexts/ElementContext';
-import { cn } from '@/lib/utils'; // Feltételezve, hogy létezik a shadcn-féle utility
+import { HexColorPicker } from 'react-colorful';
+import { useElement, ElementState } from '@/contexts/ElementContext';
+import { cn } from '@/lib/utils';
 
-// --- Types ---
-type TabMode = 'EDIT' | 'PROMPT' | 'CODE';
-type BorderRadiusTab = 'all' | 't' | 'r' | 'b' | 'l';
+// --- Sub-components for better performance ---
 
-interface PanelProps {
-  elementData: typeof defaultElementState;
-  updateElement: ReturnType<typeof useElement>['updateElement'];
-  updateNestedElement: ReturnType<typeof useElement>['updateNestedElement'];
-}
-
-// --- Helper Components ---
-
-const LabeledInput = memo(({ label, value, onChange, className }: { 
-  label: string; 
-  value?: string | number;
-  onChange?: (value: string) => void;
-  className?: string;
-}) => (
-  <div className={cn("relative flex-1", className)}>
-    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground uppercase pointer-events-none">
-      {label}
-    </span>
-    <Input 
-      type="text" 
-      value={value ?? ''} 
-      onChange={(e) => onChange?.(e.target.value)}
-      className="h-8 text-xs pl-7 bg-background/50 focus-visible:ring-1" 
-    />
-  </div>
-));
-
-const SliderControl = memo(({ icon, label, value, onChange, min, max, unit }: { 
-  icon: React.ReactNode; 
-  label: string; 
-  value: number; 
-  onChange: (value: number) => void;
-  min: number;
-  max: number;
-  unit: string;
-}) => (
-  <div className="space-y-1.5 py-1">
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-1.5">
-        <span className="text-muted-foreground">{icon}</span>
-        <span className="text-[10px] font-medium text-muted-foreground uppercase">{label}</span>
+const PropertySection = ({ title, icon: Icon, children, value }: { title: string; icon: any; children: React.ReactNode; value: string }) => (
+  <AccordionItem value={value} className="border-b border-border/50">
+    <AccordionTrigger className="py-3 px-4 hover:bg-secondary/20 transition-colors">
+      <div className="flex items-center gap-2 text-xs font-semibold text-foreground/80">
+        <Icon className="w-3.5 h-3.5" /> {title}
       </div>
-      <span className="text-[10px] font-mono bg-secondary px-1.5 rounded text-secondary-foreground">
-        {value}{unit}
-      </span>
-    </div>
-    <input 
-      type="range" 
-      min={min} 
-      max={max} 
+    </AccordionTrigger>
+    <AccordionContent className="px-4 py-3 space-y-4 bg-background/50">
+      {children}
+    </AccordionContent>
+  </AccordionItem>
+);
+
+const NumberInput = memo(({ label, value, onChange, unit, className, min, max }: any) => (
+  <div className={cn("relative group", className)}>
+    <label className="text-[9px] font-medium text-muted-foreground uppercase absolute left-2 top-1.5 z-10 pointer-events-none">
+      {label}
+    </label>
+    <Input
+      type="number"
       value={value}
       onChange={(e) => onChange(Number(e.target.value))}
-      className="w-full h-1 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary hover:accent-primary/80 transition-all" 
+      className="h-8 pl-6 pr-6 text-xs text-right font-mono bg-secondary/30 focus:bg-background transition-colors"
+      min={min} max={max}
     />
+    <span className="absolute right-2 top-2 text-[9px] text-muted-foreground pointer-events-none">{unit}</span>
   </div>
 ));
 
-const ColorButton = memo(({ color, onChange, label }: { 
-  color: string | null; 
-  onChange: (color: string | null) => void; 
-  label: string;
-}) => (
+const ColorPickerInput = memo(({ color, onChange, label }: { color: string | null; onChange: (c: string) => void; label: string }) => (
   <Popover>
     <PopoverTrigger asChild>
-      <button className="flex items-center gap-2 px-2 h-8 w-full rounded-md border border-input bg-background hover:bg-accent transition-colors">
-        <div 
-          className="w-4 h-4 rounded-sm border border-border shadow-sm" 
-          style={{ backgroundColor: color || 'transparent', backgroundImage: !color ? 'linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc), linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc)' : undefined, backgroundSize: '4px 4px', backgroundPosition: '0 0, 2px 2px' }}
-        />
-        <span className="text-[11px] font-medium truncate">{color || `No ${label}`}</span>
+      <button className="w-full flex items-center justify-between p-1.5 rounded-md border border-input bg-background hover:bg-accent transition-all group">
+        <div className="flex items-center gap-2">
+          <div 
+            className="w-5 h-5 rounded border border-border/50 shadow-sm"
+            style={{ backgroundColor: color || 'transparent', backgroundImage: !color ? 'linear-gradient(45deg, #eee 25%, transparent 25%, transparent 75%, #eee 75%, #eee)' : undefined, backgroundSize: '6px 6px' }}
+          />
+          <span className="text-[10px] font-medium text-muted-foreground group-hover:text-foreground">{label}</span>
+        </div>
+        <span className="text-[10px] font-mono text-muted-foreground">{color?.toUpperCase() || 'NONE'}</span>
       </button>
     </PopoverTrigger>
-    <PopoverContent className="w-auto p-3" align="start">
+    <PopoverContent className="w-auto p-3 bg-popover/95 backdrop-blur-xl border-border shadow-2xl" align="center">
       <HexColorPicker color={color || '#ffffff'} onChange={onChange} />
-      <div className="flex gap-2 mt-3">
-        <Input 
-          className="h-7 text-[10px] font-mono" 
-          value={color || ''} 
-          onChange={(e) => onChange(e.target.value)} 
-          placeholder="#hex"
-        />
-        <Button variant="outline" size="sm" className="h-7 px-2 text-[10px]" onClick={() => onChange(null)}>
-          Clear
-        </Button>
+      <div className="mt-2 flex gap-2">
+         <Input value={color || ''} onChange={e => onChange(e.target.value)} className="h-7 text-xs font-mono" placeholder="#HEX" />
       </div>
     </PopoverContent>
   </Popover>
 ));
 
+const CodeViewer = ({ element }: { element: ElementState }) => {
+  const [copied, setCopied] = React.useState(false);
+  
+  // Advanced code generation (mock implementation of a utility class generator)
+  const code = useMemo(() => {
+    const { style } = element;
+    const classes = [
+      `p-[${style.padding.t}px_${style.padding.r}px_${style.padding.b}px_${style.padding.l}px]`,
+      style.background.color ? `bg-[${style.background.color}]` : '',
+      `rounded-[${style.border.radius}px]`,
+      `font-${style.typography.weight}`,
+      style.shadow !== 'none' ? `shadow-${style.shadow}` : '',
+    ].filter(Boolean).join(' ');
+
+    return `<${element.type} 
+  className="${classes}"
+  style={{
+    transform: 'rotate(${style.transform.rotate}deg)'
+  }}
+>
+  ${element.content || ''}
+</${element.type}>`;
+  }, [element]);
+
+  const onCopy = () => {
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="relative mt-2">
+      <pre className="p-3 rounded-lg bg-zinc-950 border border-zinc-800 text-[10px] font-mono text-zinc-400 overflow-x-auto">
+        {code}
+      </pre>
+      <Button size="icon" variant="ghost" className="absolute top-1 right-1 h-6 w-6" onClick={onCopy}>
+        {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+      </Button>
+    </div>
+  );
+};
+
 // --- Main Component ---
 
 export const PropertyInspector = () => {
-  const { selectedElement, updateElement, updateNestedElement, deselectElement } = useElement();
-  const [activeTab, setActiveTab] = React.useState<TabMode>('EDIT');
-  const [borderRadiusTab, setBorderRadiusTab] = React.useState<BorderRadiusTab>('all');
-  const [isCopied, setIsCopied] = React.useState(false);
-  const [promptText, setPromptText] = React.useState('');
+  const { selection: el, updateElement } = useElement();
 
-  const elementData = selectedElement || defaultElementState;
-
-  // Tailwind Class & Style Logic (JIT kompatibilis)
-  const { classes, styles } = useMemo(() => {
-    const cls: string[] = [];
-    const stl: React.CSSProperties = {};
-
-    // Spacing
-    if (elementData.padding.l) cls.push(`pl-[${elementData.padding.l}px]`);
-    if (elementData.padding.t) cls.push(`pt-[${elementData.padding.t}px]`);
-    if (elementData.padding.r) cls.push(`pr-[${elementData.padding.r}px]`);
-    if (elementData.padding.b) cls.push(`pb-[${elementData.padding.b}px]`);
-    
-    // Typography
-    if (elementData.typography.weight !== 'normal') cls.push(`font-${elementData.typography.weight}`);
-    if (elementData.typography.size) stl.fontSize = `${elementData.typography.size}px`;
-    
-    // Effects
-    if (elementData.opacity < 100) cls.push(`opacity-[${elementData.opacity / 100}]`);
-    if (elementData.blur > 0) cls.push(`blur-[${elementData.blur}px]`);
-    if (elementData.shadow !== 'none') cls.push(`shadow-${elementData.shadow}`);
-    
-    // Border Radius
-    const br = elementData.borderRadius;
-    if (br.all > 0) cls.push(`rounded-[${br.all}px]`);
-
-    // Colors (Inline style biztosabb a dinamikus színeknél)
-    if (elementData.bgColor) stl.backgroundColor = elementData.bgColor;
-    if (elementData.textColor) stl.color = elementData.textColor;
-    if (elementData.borderColor) {
-      stl.borderColor = elementData.borderColor;
-      stl.borderWidth = '1px';
-      stl.borderStyle = 'solid';
-    }
-
-    // Transforms
-    if (elementData.rotate || elementData.scale !== 100 || elementData.translateX || elementData.translateY) {
-      stl.transform = `
-        rotate(${elementData.rotate}deg) 
-        scale(${elementData.scale / 100}) 
-        translate(${elementData.translateX}px, ${elementData.translateY}px)
-      `.trim();
-    }
-
-    return { classes: cls.join(' '), styles: stl };
-  }, [elementData]);
-
-  const codeText = useMemo(() => {
-    const styleString = Object.entries(styles)
-      .map(([k, v]) => `${k.replace(/[A-Z]/g, m => "-" + m.toLowerCase())}: ${v}`)
-      .join('; ');
-    
-    return `<${elementData.tag} 
-  class="${classes}"
-  ${styleString ? `style="${styleString}"` : ''}
->
-  ${elementData.textContent}
-</${elementData.tag}>`;
-  }, [elementData, classes, styles]);
-
-  const copyToClipboard = async () => {
-    await navigator.clipboard.writeText(codeText);
-    setIsCopied(true);
-    setTimeout(() => setIsCopied(false), 2000);
-  };
-
-  const resetTransforms = useCallback(() => {
-    updateElement('rotate', 0);
-    updateElement('scale', 100);
-    updateElement('translateX', 0);
-    updateElement('translateY', 0);
-  }, [updateElement]);
-
-  if (!selectedElement) {
+  if (!el) {
     return (
-      <div className="bg-card border border-border rounded-2xl w-80 h-[600px] flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-300">
-        <div className="w-16 h-16 rounded-full bg-secondary/50 flex items-center justify-center mb-4">
-          <MousePointer2 className="w-8 h-8 text-muted-foreground/40" />
+      <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-secondary/5 border-l border-border">
+        <div className="w-20 h-20 rounded-full bg-secondary/30 flex items-center justify-center mb-4 animate-pulse">
+          <MousePointer2 className="w-8 h-8 text-muted-foreground" />
         </div>
-        <h4 className="font-medium text-sm mb-1">Nincs kijelölt elem</h4>
-        <p className="text-xs text-muted-foreground">Válassz ki valamit a vásznon a testreszabáshoz.</p>
+        <h3 className="text-sm font-semibold mb-1">No Selection</h3>
+        <p className="text-xs text-muted-foreground max-w-[200px]">Click on an element in the canvas to edit its properties.</p>
       </div>
     );
   }
 
+  const updateStyle = (section: keyof typeof el.style, key: string, val: any) => {
+    updateElement(el.id, {
+      style: {
+        [section]: {
+          ...el.style[section as keyof typeof el.style], // Type cast fix needed for deep strict typing
+          [key]: val
+        }
+      } as any
+    });
+  };
+
   return (
-    <div className="bg-card border border-border rounded-2xl shadow-xl w-80 max-h-[90vh] flex flex-col overflow-hidden transition-all">
-      {/* Header */}
-      <header className="px-4 py-3 border-b border-border bg-secondary/30 flex items-center justify-between">
-        <div className="flex flex-col">
-          <span className="text-[10px] uppercase tracking-wider font-bold text-primary/70">Inspector</span>
-          <h3 className="text-xs font-mono font-bold truncate w-24">{elementData.tag.toUpperCase()}</h3>
+    <div className="w-80 h-full flex flex-col bg-card border-l border-border shadow-2xl z-20">
+      <div className="flex-shrink-0 px-4 py-3 border-b border-border bg-background/50 backdrop-blur-sm sticky top-0 z-10">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">Properties</span>
+          <span className="text-[10px] font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded">{el.type}</span>
         </div>
-        
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabMode)} className="w-auto">
-          <TabsList className="h-8 bg-background border border-border p-1">
-            <TabsTrigger value="EDIT" className="text-[10px] px-2 h-6">EDIT</TabsTrigger>
-            <TabsTrigger value="PROMPT" className="text-[10px] px-2 h-6">AI</TabsTrigger>
-            <TabsTrigger value="CODE" className="text-[10px] px-2 h-6">CODE</TabsTrigger>
-          </TabsList>
-        </Tabs>
-        
-        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={deselectElement}>
-          <X className="w-4 h-4" />
-        </Button>
-      </header>
-
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
-        {activeTab === 'EDIT' && (
-          <Accordion type="multiple" defaultValue={['content', 'colors']} className="px-4 py-2">
-            
-            {/* Content & Tag */}
-            <AccordionItem value="content" className="border-none">
-              <AccordionTrigger className="hover:no-underline py-2">
-                <div className="flex items-center gap-2 text-xs font-semibold">
-                  <Type className="w-3.5 h-3.5 text-primary" /> Tartalom
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="space-y-3 pt-1">
-                <Textarea 
-                  value={elementData.textContent} 
-                  onChange={(e) => updateElement('textContent', e.target.value)}
-                  className="text-xs min-h-[60px] resize-none"
-                  placeholder="Elem szövege..."
-                />
-                <Select value={elementData.tag} onValueChange={(v) => updateElement('tag', v)}>
-                  <SelectTrigger className="h-8 text-xs bg-background">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {['div', 'button', 'h1', 'h2', 'p', 'span', 'a'].map(t => (
-                      <SelectItem key={t} value={t} className="text-xs">{t.toUpperCase()}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </AccordionContent>
-            </AccordionItem>
-
-            {/* Colors */}
-            <AccordionItem value="colors" className="border-none">
-              <AccordionTrigger className="hover:no-underline py-2">
-                <div className="flex items-center gap-2 text-xs font-semibold">
-                  <Droplet className="w-3.5 h-3.5 text-primary" /> Megjelenés
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="space-y-3 pt-1">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-muted-foreground ml-1">Háttér</span>
-                    <ColorButton color={elementData.bgColor} onChange={(c) => updateElement('bgColor', c)} label="BG" />
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-muted-foreground ml-1">Szöveg</span>
-                    <ColorButton color={elementData.textColor} onChange={(c) => updateElement('textColor', c)} label="Text" />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-[10px] text-muted-foreground ml-1">Keret színe</span>
-                  <ColorButton color={elementData.borderColor} onChange={(c) => updateElement('borderColor', c)} label="Border" />
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-
-            {/* Layout (Padding) */}
-            <AccordionItem value="layout" className="border-none">
-              <AccordionTrigger className="hover:no-underline py-2">
-                <div className="flex items-center gap-2 text-xs font-semibold">
-                  <Square className="w-3.5 h-3.5 text-primary" /> Térköz (px)
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="pt-1">
-                <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-                  <LabeledInput label="T" value={elementData.padding.t} onChange={(v) => updateNestedElement('padding', 't', v)} />
-                  <LabeledInput label="R" value={elementData.padding.r} onChange={(v) => updateNestedElement('padding', 'r', v)} />
-                  <LabeledInput label="B" value={elementData.padding.b} onChange={(v) => updateNestedElement('padding', 'b', v)} />
-                  <LabeledInput label="L" value={elementData.padding.l} onChange={(v) => updateNestedElement('padding', 'l', v)} />
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-
-            {/* Transforms */}
-            <AccordionItem value="transforms" className="border-none">
-              <AccordionTrigger className="hover:no-underline py-2">
-                <div className="flex items-center gap-2 text-xs font-semibold">
-                  <Move className="w-3.5 h-3.5 text-primary" /> Transzformáció
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="space-y-4 pt-1">
-                <SliderControl 
-                  icon={<RotateCw className="w-3 h-3" />} 
-                  label="Forgatás" 
-                  value={elementData.rotate} 
-                  onChange={(v) => updateElement('rotate', v)} 
-                  min={-180} max={180} unit="°" 
-                />
-                <SliderControl 
-                  icon={<Maximize className="w-3 h-3" />} 
-                  label="Skálázás" 
-                  value={elementData.scale} 
-                  onChange={(v) => updateElement('scale', v)} 
-                  min={10} max={200} unit="%" 
-                />
-                <div className="flex justify-end">
-                  <Button variant="link" size="sm" className="h-auto p-0 text-[10px] text-muted-foreground" onClick={resetTransforms}>
-                    Visszaállítás
-                  </Button>
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-
-          </Accordion>
-        )}
-
-        {activeTab === 'PROMPT' && (
-          <div className="p-4 space-y-4 animate-in slide-in-from-right-2 duration-200">
-            <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
-              <p className="text-[11px] text-primary-foreground/80 leading-relaxed font-medium">
-                Használd a természetes nyelvet az elem módosításához. Az AI frissíti a tulajdonságokat.
-              </p>
-            </div>
-            <Textarea
-              placeholder="Pl: Legyen kerekebb, sötétkék háttérrel és fehér vastag betűvel..."
-              value={promptText}
-              onChange={(e) => setPromptText(e.target.value)}
-              className="min-h-[150px] text-xs focus-visible:ring-primary"
-            />
-            <Button className="w-full gap-2 shadow-lg" onClick={() => console.log("AI trigger", promptText)}>
-              <Send className="w-3.5 h-3.5" /> Generálás
-            </Button>
-          </div>
-        )}
-
-        {activeTab === 'CODE' && (
-          <div className="p-4 space-y-3 animate-in slide-in-from-right-2 duration-200">
-            <div className="relative group">
-              <pre className="p-4 bg-zinc-950 text-zinc-300 rounded-xl text-[11px] font-mono overflow-x-auto min-h-[300px] border border-white/10">
-                {codeText}
-              </pre>
-              <Button 
-                size="icon" 
-                variant="secondary" 
-                className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={copyToClipboard}
-              >
-                {isCopied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-              </Button>
-            </div>
-            <p className="text-[10px] text-muted-foreground text-center italic">
-              Tailwind JIT arbitrary values támogatott.
-            </p>
-          </div>
-        )}
+        <Input 
+          value={el.name} 
+          onChange={(e) => updateElement(el.id, { name: e.target.value })}
+          className="h-7 text-sm font-semibold border-none hover:bg-secondary/50 px-0 focus-visible:ring-0" 
+        />
       </div>
 
-      {/* Footer */}
-      <footer className="p-3 border-t border-border bg-secondary/20 flex items-center justify-between">
-        <code className="text-[10px] text-muted-foreground bg-background px-2 py-0.5 rounded">
-          id: {elementData.elementId?.slice(0, 8) || 'static'}
-        </code>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="h-7 text-[10px] font-bold">
-            MÉGSE
-          </Button>
-          <Button size="sm" className="h-7 text-[10px] font-bold px-4">
-            MENTÉS
-          </Button>
-        </div>
-      </footer>
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <Tabs defaultValue="design" className="w-full">
+          <TabsList className="w-full grid grid-cols-2 rounded-none bg-transparent border-b border-border p-0 h-9">
+            <TabsTrigger value="design" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-[11px]">Design</TabsTrigger>
+            <TabsTrigger value="code" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-[11px]">Code</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="design" className="m-0">
+            <Accordion type="multiple" defaultValue={['layout', 'typography', 'background']} className="w-full">
+              
+              <PropertySection title="Layout & Spacing" icon={Square} value="layout">
+                <div className="grid grid-cols-2 gap-2">
+                  <NumberInput label="W" value={el.style.layout.width === 'auto' ? 0 : parseInt(el.style.layout.width)} onChange={(v:number) => updateStyle('layout', 'width', `${v}px`)} unit="px" />
+                  <NumberInput label="H" value={el.style.layout.height === 'auto' ? 0 : parseInt(el.style.layout.height)} onChange={(v:number) => updateStyle('layout', 'height', `${v}px`)} unit="px" />
+                </div>
+                <div className="grid grid-cols-4 gap-1 pt-2">
+                  <NumberInput label="L" value={el.style.padding.l} onChange={(v:number) => updateStyle('padding', 'l', v)} className="text-center" />
+                  <NumberInput label="T" value={el.style.padding.t} onChange={(v:number) => updateStyle('padding', 't', v)} />
+                  <NumberInput label="R" value={el.style.padding.r} onChange={(v:number) => updateStyle('padding', 'r', v)} />
+                  <NumberInput label="B" value={el.style.padding.b} onChange={(v:number) => updateStyle('padding', 'b', v)} />
+                </div>
+              </PropertySection>
+
+              <PropertySection title="Typography" icon={Type} value="typography">
+                 <div className="space-y-3">
+                   <div className="flex items-center justify-between gap-2 bg-secondary/20 p-1 rounded-md">
+                     {[
+                       { icon: AlignLeft, v: 'left' }, { icon: AlignCenter, v: 'center' }, 
+                       { icon: AlignRight, v: 'right' }, { icon: AlignJustify, v: 'justify' }
+                     ].map(opt => (
+                       <Button 
+                        key={opt.v}
+                        variant={el.style.typography.align === opt.v ? 'default' : 'ghost'} 
+                        size="icon" 
+                        className="h-6 w-6"
+                        onClick={() => updateStyle('typography', 'align', opt.v)}
+                       >
+                         <opt.icon className="w-3 h-3" />
+                       </Button>
+                     ))}
+                   </div>
+                   <div className="grid grid-cols-2 gap-2">
+                      <NumberInput label="Size" value={el.style.typography.size} onChange={(v:number) => updateStyle('typography', 'size', v)} unit="px" />
+                      <NumberInput label="Weight" value={parseInt(el.style.typography.weight)} onChange={(v:number) => updateStyle('typography', 'weight', v.toString())} unit="" />
+                   </div>
+                 </div>
+              </PropertySection>
+
+              <PropertySection title="Appearance" icon={Droplet} value="background">
+                <ColorPickerInput 
+                  label="Background" 
+                  color={el.style.background.color} 
+                  onChange={(c) => updateStyle('background', 'color', c)} 
+                />
+                <div className="pt-2">
+                  <div className="flex justify-between text-[10px] mb-1.5">
+                    <span>Opacity</span>
+                    <span>{el.style.background.opacity}%</span>
+                  </div>
+                  <Slider 
+                    value={[el.style.background.opacity]} 
+                    max={100} 
+                    onValueChange={([v]) => updateStyle('background', 'opacity', v)} 
+                    className="w-full"
+                  />
+                </div>
+              </PropertySection>
+
+              <PropertySection title="Transform" icon={Move} value="transform">
+                <div className="grid grid-cols-2 gap-2">
+                  <NumberInput label="Rotate" value={el.style.transform.rotate} onChange={(v:number) => updateStyle('transform', 'rotate', v)} unit="deg" />
+                  <NumberInput label="Scale" value={el.style.transform.scale} onChange={(v:number) => updateStyle('transform', 'scale', v)} unit="%" />
+                  <NumberInput label="X" value={el.style.transform.x} onChange={(v:number) => updateStyle('transform', 'x', v)} unit="px" />
+                  <NumberInput label="Y" value={el.style.transform.y} onChange={(v:number) => updateStyle('transform', 'y', v)} unit="px" />
+                </div>
+              </PropertySection>
+
+            </Accordion>
+          </TabsContent>
+          <TabsContent value="code" className="p-4">
+             <CodeViewer element={el} />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 };
