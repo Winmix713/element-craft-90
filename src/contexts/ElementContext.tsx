@@ -1,175 +1,235 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, ReactNode, useMemo } from 'react';
+import { v4 as uuidv4 } from 'uuid'; // Feltételezve, hogy van uuid, ha nincs, használj egy egyszerű random generátort.
 
-// Elem állapot típusa
+// --- Types & Interfaces ---
+
+export interface ElementStyle {
+  padding: { l: number; t: number; r: number; b: number };
+  margin: { x: number; y: number };
+  typography: { font: string; weight: string; size: number; lineHeight: number; letterSpacing: number; align: 'left' | 'center' | 'right' | 'justify' };
+  background: { color: string | null; opacity: number; blur: number };
+  border: { color: string | null; width: number; radius: number; style: 'solid' | 'dashed' | 'dotted' | 'none' };
+  layout: { width: string; height: string; display: string; flexDirection: 'row' | 'column'; gap: number };
+  transform: { rotate: number; scale: number; x: number; y: number };
+  shadow: string;
+}
+
 export interface ElementState {
   id: string;
-  tag: string;
-  textContent: string;
-  padding: { l: string; t: string; r: string; b: string };
-  margin: { x: string; y: string };
-  position: { type: string; l: string; t: string; r: string; b: string };
-  size: { width: string; height: string; maxW: string; maxH: string };
-  spacing: { spaceX: string; spaceY: string; gapX: string; gapY: string };
-  alignment: { justify: string; align: string };
-  typography: { font: string; weight: string; tracking: string; size: string };
-  opacity: number;
-  rotate: number;
-  scale: number;
-  translateX: number;
-  translateY: number;
-  skewX: number;
-  skewY: number;
-  rotateX: number;
-  rotateY: number;
-  rotateZ: number;
-  perspective: number;
-  bgColor: string | null;
-  textColor: string | null;
-  borderColor: string | null;
-  ringColor: string | null;
-  borderRadius: { all: number; t: number; r: number; b: number; l: number };
-  borderWidth: number;
-  shadow: string;
-  blur: number;
-  backdropBlur: number;
-  hueRotate: number;
-  saturation: number;
-  brightness: number;
-  grayscale: number;
-  invert: number;
-  inlineCSS: string;
-  elementId: string;
+  type: string; // 'div', 'button', etc.
+  name: string; // Layer name
+  content?: string;
+  style: ElementStyle;
+  childrenIds: string[]; // For nested structures
+  parentId: string | null;
 }
 
-// Alapértelmezett elem állapot
-export const defaultElementState: ElementState = {
-  id: '',
-  tag: 'div',
-  textContent: '',
-  padding: { l: '0', t: '0', r: '0', b: '0' },
-  margin: { x: '0', y: '0' },
-  position: { type: 'relative', l: '', t: '', r: '', b: '' },
-  size: { width: '', height: '', maxW: '', maxH: '' },
-  spacing: { spaceX: '', spaceY: '', gapX: '', gapY: '' },
-  alignment: { justify: 'default', align: 'default' },
-  typography: { font: 'inter', weight: 'normal', tracking: 'normal', size: '14' },
-  opacity: 100,
-  rotate: 0,
-  scale: 100,
-  translateX: 0,
-  translateY: 0,
-  skewX: 0,
-  skewY: 0,
-  rotateX: 0,
-  rotateY: 0,
-  rotateZ: 0,
-  perspective: 0,
-  bgColor: null,
-  textColor: null,
-  borderColor: null,
-  ringColor: null,
-  borderRadius: { all: 0, t: 0, r: 0, b: 0, l: 0 },
-  borderWidth: 0,
-  shadow: 'none',
-  blur: 0,
-  backdropBlur: 0,
-  hueRotate: 0,
-  saturation: 100,
-  brightness: 100,
-  grayscale: 0,
-  invert: 0,
-  inlineCSS: '',
-  elementId: ''
-};
+interface EditorHistory {
+  past: Map<string, ElementState>[];
+  present: Map<string, ElementState>;
+  future: Map<string, ElementState>[];
+}
 
 interface ElementContextType {
-  selectedElement: ElementState | null;
-  setSelectedElement: (element: ElementState | null) => void;
-  updateElement: <K extends keyof ElementState>(key: K, value: ElementState[K]) => void;
-  updateNestedElement: <K extends keyof ElementState>(key: K, nestedKey: string, value: string | number) => void;
   elements: Map<string, ElementState>;
-  registerElement: (id: string, initialState: Partial<ElementState>) => void;
-  selectElement: (id: string) => void;
-  deselectElement: () => void;
+  selectedIds: string[];
+  selection: ElementState | null; // Primary selection
+  canUndo: boolean;
+  canRedo: boolean;
+  
+  // Actions
+  selectElement: (id: string, multi?: boolean) => void;
+  deselectAll: () => void;
+  updateElement: (id: string, updates: DeepPartial<ElementState>) => void;
+  addElement: (type: string, parentId?: string) => void;
+  removeElement: (id: string) => void;
+  undo: () => void;
+  redo: () => void;
 }
+
+// Utility type for deep updates
+type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+};
+
+// --- Defaults ---
+
+const defaultStyle: ElementStyle = {
+  padding: { l: 16, t: 16, r: 16, b: 16 },
+  margin: { x: 0, y: 0 },
+  typography: { font: 'Inter', weight: '400', size: 16, lineHeight: 1.5, letterSpacing: 0, align: 'left' },
+  background: { color: null, opacity: 100, blur: 0 },
+  border: { color: null, width: 0, radius: 0, style: 'none' },
+  layout: { width: 'auto', height: 'auto', display: 'flex', flexDirection: 'column', gap: 8 },
+  transform: { rotate: 0, scale: 100, x: 0, y: 0 },
+  shadow: 'none'
+};
+
+const defaultElement: ElementState = {
+  id: '',
+  type: 'div',
+  name: 'Container',
+  style: defaultStyle,
+  childrenIds: [],
+  parentId: null
+};
+
+// --- Reducer ---
+
+type Action = 
+  | { type: 'SELECT'; id: string; multi: boolean }
+  | { type: 'DESELECT' }
+  | { type: 'UPDATE'; id: string; updates: DeepPartial<ElementState> }
+  | { type: 'ADD'; element: ElementState }
+  | { type: 'REMOVE'; id: string }
+  | { type: 'UNDO' }
+  | { type: 'REDO' };
+
+const MAX_HISTORY = 50;
+
+const deepMerge = (target: any, source: any): any => {
+  const output = { ...target };
+  if (isObject(target) && isObject(source)) {
+    Object.keys(source).forEach(key => {
+      if (isObject(source[key])) {
+        if (!(key in target)) Object.assign(output, { [key]: source[key] });
+        else output[key] = deepMerge(target[key], source[key]);
+      } else {
+        Object.assign(output, { [key]: source[key] });
+      }
+    });
+  }
+  return output;
+};
+
+const isObject = (item: any) => (item && typeof item === 'object' && !Array.isArray(item));
+
+const elementReducer = (state: { history: EditorHistory; selectedIds: string[] }, action: Action) => {
+  const { history, selectedIds } = state;
+  const { past, present, future } = history;
+
+  switch (action.type) {
+    case 'SELECT':
+      return {
+        ...state,
+        selectedIds: action.multi 
+          ? (selectedIds.includes(action.id) ? selectedIds.filter(id => id !== action.id) : [...selectedIds, action.id])
+          : [action.id]
+      };
+    
+    case 'DESELECT':
+      return { ...state, selectedIds: [] };
+
+    case 'UPDATE': {
+      const newPresent = new Map(present);
+      const currentEl = newPresent.get(action.id);
+      if (!currentEl) return state;
+
+      const updatedEl = deepMerge(currentEl, action.updates);
+      newPresent.set(action.id, updatedEl);
+
+      return {
+        selectedIds,
+        history: {
+          past: [...past, present].slice(-MAX_HISTORY),
+          present: newPresent,
+          future: []
+        }
+      };
+    }
+
+    case 'ADD': {
+      const newPresent = new Map(present);
+      newPresent.set(action.element.id, action.element);
+      return {
+        selectedIds: [action.element.id],
+        history: {
+          past: [...past, present].slice(-MAX_HISTORY),
+          present: newPresent,
+          future: []
+        }
+      };
+    }
+
+    case 'UNDO': {
+      if (past.length === 0) return state;
+      const previous = past[past.length - 1];
+      const newPast = past.slice(0, past.length - 1);
+      return {
+        ...state,
+        history: {
+          past: newPast,
+          present: previous,
+          future: [present, ...future]
+        }
+      };
+    }
+
+    case 'REDO': {
+      if (future.length === 0) return state;
+      const next = future[0];
+      const newFuture = future.slice(1);
+      return {
+        ...state,
+        history: {
+          past: [...past, present],
+          present: next,
+          future: newFuture
+        }
+      };
+    }
+
+    default:
+      return state;
+  }
+};
+
+// --- Context ---
 
 const ElementContext = createContext<ElementContextType | undefined>(undefined);
 
 export const ElementProvider = ({ children }: { children: ReactNode }) => {
-  const [elements, setElements] = useState<Map<string, ElementState>>(new Map());
-  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
-
-  const selectedElement = selectedElementId ? elements.get(selectedElementId) || null : null;
-
-  const registerElement = (id: string, initialState: Partial<ElementState>) => {
-    setElements(prev => {
-      const newMap = new Map(prev);
-      if (!newMap.has(id)) {
-        newMap.set(id, { ...defaultElementState, ...initialState, id });
-      }
-      return newMap;
-    });
-  };
-
-  const selectElement = (id: string) => {
-    setSelectedElementId(id);
-  };
-
-  const deselectElement = () => {
-    setSelectedElementId(null);
-  };
-
-  const setSelectedElement = (element: ElementState | null) => {
-    if (element) {
-      setElements(prev => {
-        const newMap = new Map(prev);
-        newMap.set(element.id, element);
-        return newMap;
-      });
+  const [state, dispatch] = useReducer(elementReducer, {
+    selectedIds: [],
+    history: {
+      past: [],
+      present: new Map(),
+      future: []
     }
-  };
+  });
 
-  const updateElement = <K extends keyof ElementState>(key: K, value: ElementState[K]) => {
-    if (!selectedElementId) return;
-    setElements(prev => {
-      const newMap = new Map(prev);
-      const current = newMap.get(selectedElementId);
-      if (current) {
-        newMap.set(selectedElementId, { ...current, [key]: value });
-      }
-      return newMap;
-    });
-  };
+  const { present } = state.history;
 
-  const updateNestedElement = <K extends keyof ElementState>(
-    key: K,
-    nestedKey: string,
-    value: string | number
-  ) => {
-    if (!selectedElementId) return;
-    setElements(prev => {
-      const newMap = new Map(prev);
-      const current = newMap.get(selectedElementId);
-      if (current) {
-        newMap.set(selectedElementId, {
-          ...current,
-          [key]: { ...(current[key] as Record<string, unknown>), [nestedKey]: value }
-        });
-      }
-      return newMap;
-    });
-  };
+  const actions = useMemo(() => ({
+    selectElement: (id: string, multi = false) => dispatch({ type: 'SELECT', id, multi }),
+    deselectAll: () => dispatch({ type: 'DESELECT' }),
+    updateElement: (id: string, updates: DeepPartial<ElementState>) => dispatch({ type: 'UPDATE', id, updates }),
+    addElement: (type: string, parentId?: string) => {
+      const id = uuidv4 ? uuidv4() : Math.random().toString(36).substr(2, 9);
+      const newElement: ElementState = {
+        ...defaultElement,
+        id,
+        type,
+        name: `${type.charAt(0).toUpperCase() + type.slice(1)} ${present.size + 1}`,
+        parentId: parentId || null
+      };
+      dispatch({ type: 'ADD', element: newElement });
+    },
+    removeElement: (id: string) => dispatch({ type: 'REMOVE', id }),
+    undo: () => dispatch({ type: 'UNDO' }),
+    redo: () => dispatch({ type: 'REDO' })
+  }), [present.size]);
+
+  const selection = state.selectedIds.length === 1 ? present.get(state.selectedIds[0]) || null : null;
 
   return (
     <ElementContext.Provider value={{
-      selectedElement,
-      setSelectedElement,
-      updateElement,
-      updateNestedElement,
-      elements,
-      registerElement,
-      selectElement,
-      deselectElement
+      elements: present,
+      selectedIds: state.selectedIds,
+      selection,
+      canUndo: state.history.past.length > 0,
+      canRedo: state.history.future.length > 0,
+      ...actions
     }}>
       {children}
     </ElementContext.Provider>
@@ -178,8 +238,6 @@ export const ElementProvider = ({ children }: { children: ReactNode }) => {
 
 export const useElement = () => {
   const context = useContext(ElementContext);
-  if (!context) {
-    throw new Error('useElement must be used within an ElementProvider');
-  }
+  if (!context) throw new Error('useElement must be used within an ElementProvider');
   return context;
 };
