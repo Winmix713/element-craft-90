@@ -1,157 +1,431 @@
 import { useState } from 'react';
-import { Palette, Sun, Moon, Monitor, Upload, Download, Save, Undo2 } from 'lucide-react';
-import { HexColorPicker } from 'react-colorful';
+import { Sun, Moon, Monitor, Square, Circle, RectangleHorizontal, Palette, Settings2, Sparkles, Layers, Download, Upload, RotateCcw } from 'lucide-react';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
-import { Input } from './ui/input';
+import { Switch } from './ui/switch';
+import { HexColorPicker } from 'react-colorful';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { useTheme, ColorPalette, ThemeConfig } from '@/contexts/ThemeContext';
-import { cn } from '@/lib/utils';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
+import { useTheme, ThemeMode, ShapePreset, SolidStyle, EffectStyle, SurfaceStyle, DataStyle, TransitionStyle } from '@/contexts/ThemeContext';
 
-// Helper: HSL/Hex Conversions (simplified for brevity, assume accurate implementation)
-const hslToHex = (hsl: string) => { /* ... existing logic ... */ return '#3b82f6'; }; 
-const hexToHsl = (hex: string) => { /* ... existing logic ... */ return '221 83% 53%'; };
+const hslToHex = (hsl: string): string => {
+  const [h, s, l] = hsl.split(' ').map(v => parseFloat(v));
+  const a = (s / 100) * Math.min(l / 100, 1 - l / 100);
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    const color = l / 100 - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * color).toString(16).padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+};
 
-const ColorControl = ({ label, variable, colorKey }: { label: string, variable: string, colorKey: keyof ColorPalette }) => {
-  const { activeTheme, updateColor } = useTheme();
-  const currentColor = activeTheme.colors[colorKey];
-
-  return (
-    <div className="flex items-center justify-between py-2 group">
-      <div className="flex flex-col">
-        <span className="text-[11px] font-medium text-foreground">{label}</span>
-        <code className="text-[9px] text-muted-foreground font-mono opacity-0 group-hover:opacity-100 transition-opacity">--{colorKey}</code>
-      </div>
-      <Popover>
-        <PopoverTrigger asChild>
-          <button className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-full border border-border bg-background hover:bg-secondary transition-all">
-            <div className="w-5 h-5 rounded-full shadow-inner" style={{ backgroundColor: `hsl(${currentColor})` }} />
-            <span className="text-[10px] font-mono">{hslToHex(currentColor)}</span>
-          </button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-3" align="end">
-           <HexColorPicker color={hslToHex(currentColor)} onChange={(h) => updateColor(colorKey, hexToHsl(h))} />
-        </PopoverContent>
-      </Popover>
-    </div>
-  );
+const hexToHsl = (hex: string): string => {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!result) return '217 91% 60%';
+  let r = parseInt(result[1], 16) / 255;
+  let g = parseInt(result[2], 16) / 255;
+  let b = parseInt(result[3], 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0;
+  const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+  return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
 };
 
 export const ThemeCustomizer = () => {
-  const { activeTheme, setThemeMode, savedThemes, loadPreset, saveCurrentAsPreset, resetToDefault, updateToken } = useTheme();
-  const [newPresetName, setNewPresetName] = useState('');
+  const { theme, updateTheme, resetTheme } = useTheme();
+  const [openAccordions, setOpenAccordions] = useState<string[]>(['theme', 'shape', 'color']);
+
+  const ColorSwatch = ({ color, label, onChange }: { color: string; label: string; onChange: (val: string) => void }) => (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className="flex flex-col items-center gap-1 group">
+          <div 
+            className="w-8 h-8 rounded-lg border border-border shadow-sm group-hover:ring-2 ring-primary/50 transition-all"
+            style={{ backgroundColor: `hsl(${color})` }}
+          />
+          <span className="text-[9px] text-muted-foreground">{label}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-3" align="start">
+        <HexColorPicker color={hslToHex(color)} onChange={(hex) => onChange(hexToHsl(hex))} />
+      </PopoverContent>
+    </Popover>
+  );
+
+  const ToggleGroup = <T extends string>({ 
+    options, 
+    value, 
+    onChange,
+    renderOption
+  }: { 
+    options: T[]; 
+    value: T; 
+    onChange: (val: T) => void;
+    renderOption?: (opt: T) => React.ReactNode;
+  }) => (
+    <div className="flex border border-border rounded-lg overflow-hidden">
+      {options.map((opt) => (
+        <button
+          key={opt}
+          onClick={() => onChange(opt)}
+          className={`flex-1 px-3 py-1.5 text-[10px] font-medium transition-colors ${
+            value === opt 
+              ? 'bg-primary text-primary-foreground' 
+              : 'bg-card text-muted-foreground hover:bg-secondary'
+          }`}
+        >
+          {renderOption ? renderOption(opt) : opt.charAt(0).toUpperCase() + opt.slice(1)}
+        </button>
+      ))}
+    </div>
+  );
+
+  const exportTheme = () => {
+    const blob = new Blob([JSON.stringify(theme, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'theme-config.json';
+    a.click();
+  };
+
+  const importTheme = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            const imported = JSON.parse(ev.target?.result as string);
+            updateTheme(imported);
+          } catch (err) {
+            console.error('Invalid theme file');
+          }
+        };
+        reader.readAsText(file);
+      }
+    };
+    input.click();
+  };
 
   return (
-    <div className="w-72 flex flex-col h-full bg-card border-r border-border shadow-xl">
+    <div className="bg-card border border-border rounded-2xl shadow-[var(--shadow-panel)] w-80 max-h-[600px] flex flex-col">
       {/* Header */}
-      <div className="p-4 border-b border-border bg-gradient-to-br from-secondary/50 to-background">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="p-1.5 bg-primary rounded-md text-primary-foreground">
-             <Palette className="w-4 h-4" />
-          </div>
-          <h2 className="font-semibold text-sm">Theme Engine</h2>
+      <div className="flex items-center justify-between border-b border-border py-2 px-4 bg-secondary/50 rounded-t-2xl flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <Palette className="w-4 h-4 text-primary" />
+          <h3 className="text-xs font-semibold text-foreground">Theme Customizer</h3>
         </div>
-        
-        <Select value={activeTheme.id} onValueChange={loadPreset}>
-          <SelectTrigger className="w-full h-8 text-xs">
-            <SelectValue placeholder="Select Preset" />
-          </SelectTrigger>
-          <SelectContent>
-            {savedThemes.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
-        
-        {/* Mode Switcher */}
-        <div className="space-y-2">
-          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Appearance</label>
-          <div className="flex bg-secondary p-1 rounded-lg">
-            {['light', 'system', 'dark'].map((m) => (
-              <button
-                key={m}
-                onClick={() => setThemeMode(m as any)}
-                className={cn(
-                  "flex-1 flex items-center justify-center py-1.5 rounded-md text-[10px] font-medium transition-all",
-                  activeTheme.mode === m ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {m === 'light' && <Sun className="w-3.5 h-3.5 mr-1" />}
-                {m === 'dark' && <Moon className="w-3.5 h-3.5 mr-1" />}
-                {m === 'system' && <Monitor className="w-3.5 h-3.5 mr-1" />}
-                {m.charAt(0).toUpperCase() + m.slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Global Tokens */}
-        <div className="space-y-4">
-          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Design Tokens</label>
-          
-          <div className="space-y-3">
-             <div className="space-y-1.5">
-               <div className="flex justify-between text-[11px]">
-                 <span>Radius</span>
-                 <span className="text-muted-foreground">{activeTheme.tokens.radius}rem</span>
-               </div>
-               <Slider 
-                 value={[activeTheme.tokens.radius]} 
-                 min={0} max={2} step={0.1}
-                 onValueChange={([v]) => updateToken('radius', v)} 
-               />
-             </div>
-
-             <div className="space-y-1.5">
-               <div className="flex justify-between text-[11px]">
-                 <span>Global Scale</span>
-                 <span className="text-muted-foreground">{activeTheme.tokens.scaling}%</span>
-               </div>
-               <Slider 
-                 value={[activeTheme.tokens.scaling]} 
-                 min={75} max={125} step={5}
-                 onValueChange={([v]) => updateToken('scaling', v)} 
-               />
-             </div>
-          </div>
-        </div>
-
-        {/* Colors */}
-        <div className="space-y-2">
-          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Semantic Palette</label>
-          <div className="space-y-0 divide-y divide-border/50">
-            <ColorControl label="Primary Brand" variable="primary" colorKey="primary" />
-            <ColorControl label="Secondary / Muted" variable="secondary" colorKey="secondary" />
-            <ColorControl label="Accent" variable="accent" colorKey="accent" />
-            <ColorControl label="Background" variable="background" colorKey="background" />
-            <ColorControl label="Surface / Card" variable="card" colorKey="card" />
-          </div>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={importTheme} title="Import">
+            <Upload className="w-3 h-3" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={exportTheme} title="Export">
+            <Download className="w-3 h-3" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={resetTheme} title="Reset">
+            <RotateCcw className="w-3 h-3" />
+          </Button>
         </div>
       </div>
 
-      {/* Footer Actions */}
-      <div className="p-4 border-t border-border bg-secondary/10 space-y-2">
-        <div className="flex gap-2">
-           <Input 
-             placeholder="New Preset Name" 
-             className="h-8 text-xs" 
-             value={newPresetName}
-             onChange={(e) => setNewPresetName(e.target.value)}
-           />
-           <Button size="icon" className="h-8 w-8" onClick={() => saveCurrentAsPreset(newPresetName || 'Untitled')}>
-             <Save className="w-3.5 h-3.5" />
-           </Button>
-        </div>
-        <div className="flex gap-2">
-           <Button variant="outline" size="sm" className="w-full text-[10px] h-7" onClick={resetToDefault}>
-             <Undo2 className="w-3 h-3 mr-1" /> Reset
-           </Button>
-           <Button variant="outline" size="sm" className="w-full text-[10px] h-7">
-             <Download className="w-3 h-3 mr-1" /> Export
-           </Button>
-        </div>
+      {/* Content */}
+      <div className="p-3 overflow-y-auto flex-1">
+        <Accordion type="multiple" value={openAccordions} onValueChange={setOpenAccordions} className="space-y-2">
+          {/* Theme Mode */}
+          <AccordionItem value="theme" className="border border-border rounded-lg px-3">
+            <AccordionTrigger className="py-2 text-xs font-medium hover:no-underline">
+              <div className="flex items-center gap-2">
+                <Sun className="w-3.5 h-3.5" />
+                Theme
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pb-3">
+              <div className="flex gap-2">
+                {[
+                  { mode: 'light' as ThemeMode, icon: Sun, label: 'Light' },
+                  { mode: 'dark' as ThemeMode, icon: Moon, label: 'Dark' },
+                  { mode: 'system' as ThemeMode, icon: Monitor, label: 'System' },
+                ].map(({ mode, icon: Icon, label }) => (
+                  <button
+                    key={mode}
+                    onClick={() => updateTheme({ mode })}
+                    className={`flex-1 flex flex-col items-center gap-1 p-2 rounded-lg border transition-colors ${
+                      theme.mode === mode 
+                        ? 'border-primary bg-primary/10' 
+                        : 'border-border hover:bg-secondary'
+                    }`}
+                  >
+                    <Icon className={`w-4 h-4 ${theme.mode === mode ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <span className="text-[10px]">{label}</span>
+                  </button>
+                ))}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* Shape */}
+          <AccordionItem value="shape" className="border border-border rounded-lg px-3">
+            <AccordionTrigger className="py-2 text-xs font-medium hover:no-underline">
+              <div className="flex items-center gap-2">
+                <Square className="w-3.5 h-3.5" />
+                Shape
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pb-3">
+              <div className="flex gap-2">
+                {[
+                  { shape: 'sharp' as ShapePreset, icon: Square, label: 'Sharp' },
+                  { shape: 'rounded' as ShapePreset, icon: RectangleHorizontal, label: 'Rounded' },
+                  { shape: 'full' as ShapePreset, icon: Circle, label: 'Full' },
+                ].map(({ shape, icon: Icon, label }) => (
+                  <button
+                    key={shape}
+                    onClick={() => updateTheme({ shape })}
+                    className={`flex-1 flex flex-col items-center gap-1 p-2 rounded-lg border transition-colors ${
+                      theme.shape === shape 
+                        ? 'border-primary bg-primary/10' 
+                        : 'border-border hover:bg-secondary'
+                    }`}
+                  >
+                    <Icon className={`w-4 h-4 ${theme.shape === shape ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <span className="text-[10px]">{label}</span>
+                  </button>
+                ))}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* Colors */}
+          <AccordionItem value="color" className="border border-border rounded-lg px-3">
+            <AccordionTrigger className="py-2 text-xs font-medium hover:no-underline">
+              <div className="flex items-center gap-2">
+                <Palette className="w-3.5 h-3.5" />
+                Color
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pb-3 space-y-3">
+              <div>
+                <span className="text-[10px] text-muted-foreground mb-2 block">Brand</span>
+                <div className="flex gap-3">
+                  <ColorSwatch 
+                    color={theme.colors.primary} 
+                    label="Primary" 
+                    onChange={(val) => updateTheme({ colors: { ...theme.colors, primary: val } })}
+                  />
+                  <ColorSwatch 
+                    color={theme.colors.accent} 
+                    label="Accent" 
+                    onChange={(val) => updateTheme({ colors: { ...theme.colors, accent: val } })}
+                  />
+                </div>
+              </div>
+              <div>
+                <span className="text-[10px] text-muted-foreground mb-2 block">Neutral</span>
+                <ToggleGroup 
+                  options={['slate', 'gray', 'zinc'] as const}
+                  value={theme.colors.neutral}
+                  onChange={(val) => updateTheme({ colors: { ...theme.colors, neutral: val } })}
+                />
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* Solid Style */}
+          <AccordionItem value="solid" className="border border-border rounded-lg px-3">
+            <AccordionTrigger className="py-2 text-xs font-medium hover:no-underline">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5" />
+                Solid Style
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pb-3 space-y-3">
+              <div>
+                <span className="text-[10px] text-muted-foreground mb-2 block">Style</span>
+                <ToggleGroup 
+                  options={['color', 'inverse', 'contrast'] as SolidStyle[]}
+                  value={theme.solidStyle}
+                  onChange={(val) => updateTheme({ solidStyle: val })}
+                />
+              </div>
+              <div>
+                <span className="text-[10px] text-muted-foreground mb-2 block">Effect</span>
+                <ToggleGroup 
+                  options={['flat', 'plastic'] as EffectStyle[]}
+                  value={theme.effectStyle}
+                  onChange={(val) => updateTheme({ effectStyle: val })}
+                />
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* Effects */}
+          <AccordionItem value="effects" className="border border-border rounded-lg px-3">
+            <AccordionTrigger className="py-2 text-xs font-medium hover:no-underline">
+              <div className="flex items-center gap-2">
+                <Layers className="w-3.5 h-3.5" />
+                Effects
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pb-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-medium">Depth Effect</span>
+                  <p className="text-[9px] text-muted-foreground">3D depth on fields</p>
+                </div>
+                <Switch 
+                  checked={theme.depthEffect} 
+                  onCheckedChange={(val) => updateTheme({ depthEffect: val })} 
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-medium">Noise Effect</span>
+                  <p className="text-[9px] text-muted-foreground">Noise pattern on fields</p>
+                </div>
+                <Switch 
+                  checked={theme.noiseEffect} 
+                  onCheckedChange={(val) => updateTheme({ noiseEffect: val })} 
+                />
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* Advanced */}
+          <AccordionItem value="advanced" className="border border-border rounded-lg px-3">
+            <AccordionTrigger className="py-2 text-xs font-medium hover:no-underline">
+              <div className="flex items-center gap-2">
+                <Settings2 className="w-3.5 h-3.5" />
+                Advanced
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pb-3 space-y-4">
+              <div>
+                <span className="text-[10px] text-muted-foreground mb-2 block">Surface</span>
+                <ToggleGroup 
+                  options={['filled', 'translucent'] as SurfaceStyle[]}
+                  value={theme.surface}
+                  onChange={(val) => updateTheme({ surface: val })}
+                />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] text-muted-foreground">Scaling</span>
+                  <span className="text-[10px] font-medium">{theme.scaling}%</span>
+                </div>
+                <Slider 
+                  value={[theme.scaling]} 
+                  onValueChange={([val]) => updateTheme({ scaling: val })}
+                  min={90}
+                  max={110}
+                  step={5}
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <span className="text-[10px] text-muted-foreground mb-2 block">Data Style</span>
+                <ToggleGroup 
+                  options={['categorical', 'divergent', 'sequential'] as DataStyle[]}
+                  value={theme.dataStyle}
+                  onChange={(val) => updateTheme({ dataStyle: val })}
+                  renderOption={(opt) => opt.slice(0, 3).toUpperCase()}
+                />
+              </div>
+              <div>
+                <span className="text-[10px] text-muted-foreground mb-2 block">Transition</span>
+                <ToggleGroup 
+                  options={['all', 'micro', 'macro', 'none'] as TransitionStyle[]}
+                  value={theme.transition}
+                  onChange={(val) => updateTheme({ transition: val })}
+                />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] text-muted-foreground">Border Width</span>
+                  <span className="text-[10px] font-medium">{theme.borderWidth}px</span>
+                </div>
+                <Slider 
+                  value={[theme.borderWidth]} 
+                  onValueChange={([val]) => updateTheme({ borderWidth: val })}
+                  min={0}
+                  max={4}
+                  step={1}
+                  className="w-full"
+                />
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* Sizes */}
+          <AccordionItem value="sizes" className="border border-border rounded-lg px-3">
+            <AccordionTrigger className="py-2 text-xs font-medium hover:no-underline">
+              <div className="flex items-center gap-2">
+                <RectangleHorizontal className="w-3.5 h-3.5" />
+                Sizes
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pb-3 space-y-4">
+              <div>
+                <span className="text-[10px] text-muted-foreground mb-2 block">Fields (button, input, select, tab)</span>
+                <div className="flex gap-1 mb-2">
+                  {['xs', 'sm', 'md', 'lg', 'xl'].map((size, i) => (
+                    <div key={size} className="flex-1 text-center">
+                      <div className="text-[9px] text-muted-foreground mb-1">{size}</div>
+                      <div className="text-[10px] font-mono">{24 + i * 8}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] text-muted-foreground">Base Size</span>
+                  <span className="text-[10px] font-medium">{theme.fieldBaseSize.toFixed(1)}px</span>
+                </div>
+                <Slider 
+                  value={[theme.fieldBaseSize]} 
+                  onValueChange={([val]) => updateTheme({ fieldBaseSize: val })}
+                  min={2}
+                  max={8}
+                  step={0.5}
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <span className="text-[10px] text-muted-foreground mb-2 block">Selectors (checkbox, toggle, badge)</span>
+                <div className="flex gap-1 mb-2">
+                  {['xs', 'sm', 'md', 'lg', 'xl'].map((size, i) => (
+                    <div key={size} className="flex-1 text-center">
+                      <div className="text-[9px] text-muted-foreground mb-1">{size}</div>
+                      <div className="text-[10px] font-mono">{16 + i * 4}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] text-muted-foreground">Base Size</span>
+                  <span className="text-[10px] font-medium">{theme.selectorBaseSize.toFixed(1)}px</span>
+                </div>
+                <Slider 
+                  value={[theme.selectorBaseSize]} 
+                  onValueChange={([val]) => updateTheme({ selectorBaseSize: val })}
+                  min={2}
+                  max={8}
+                  step={0.5}
+                  className="w-full"
+                />
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </div>
     </div>
   );
