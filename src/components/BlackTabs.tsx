@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { useElement, defaultElementState } from '@/contexts/ElementContext';
+import { useElement } from '@/contexts/ElementContext';
 import { cn } from '@/lib/utils';
 
 interface BlackTabsProps {
@@ -16,37 +16,32 @@ export const BlackTabs = ({ id, tabs, defaultValue, onValueChange }: BlackTabsPr
   const elementState = elements.get(id);
   const isSelected = selectedElement?.id === id;
 
-  // Regisztráljuk az elemet
   useEffect(() => {
-    registerElement(id, {
-      tag: 'div',
-      textContent: tabs.map(t => t.label).join(', '),
-      bgColor: '#0a0a0a',
-      textColor: '#ffffff',
-      padding: { l: '1', t: '1', r: '1', b: '1' },
-      borderRadius: { all: 12, t: 12, r: 12, b: 12, l: 12 },
-      typography: { font: 'inter', weight: 'medium', tracking: 'normal', size: '14' },
-      elementId: id
+    registerElement(id, 'div', `Tabs - ${id}`, {
+      background: { color: '#0a0a0a', opacity: 100 },
+      border: { radius: 12 },
+      padding: { l: 4, t: 4, r: 4, b: 4 }
     });
-  }, [id]);
+  }, [id, registerElement]);
 
-  // Dinamikus stílusok az Inspector beállításai alapján
-  const dynamicStyles = useMemo(() => {
-    if (!elementState) return {};
+  const dynamicStyles = useMemo((): React.CSSProperties => {
+    if (!elementState) return { backgroundColor: '#0a0a0a', borderRadius: '12px' };
     
-    const styles: React.CSSProperties = {};
-    
-    if (elementState.bgColor) styles.backgroundColor = elementState.bgColor;
-    if (elementState.textColor) styles.color = elementState.textColor;
-    if (elementState.opacity !== 100) styles.opacity = elementState.opacity / 100;
-    if (elementState.borderRadius.all > 0) styles.borderRadius = `${elementState.borderRadius.all}px`;
-    if (elementState.borderColor) {
-      styles.borderColor = elementState.borderColor;
-      styles.borderWidth = `${elementState.borderWidth || 1}px`;
-      styles.borderStyle = 'solid';
+    const { style } = elementState;
+    const styles: React.CSSProperties = {
+      backgroundColor: style.background.color || '#0a0a0a',
+      borderRadius: `${style.border.radius}px`,
+      opacity: style.background.opacity / 100,
+      padding: `${style.padding.t}px ${style.padding.r}px ${style.padding.b}px ${style.padding.l}px`
+    };
+
+    if (style.border.color && style.border.width > 0) {
+      styles.borderColor = style.border.color;
+      styles.borderWidth = `${style.border.width}px`;
+      styles.borderStyle = style.border.style;
     }
-    if (elementState.blur > 0) styles.filter = `blur(${elementState.blur}px)`;
-    if (elementState.shadow !== 'none') {
+
+    if (style.shadow !== 'none') {
       const shadows: Record<string, string> = {
         sm: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
         md: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
@@ -54,19 +49,16 @@ export const BlackTabs = ({ id, tabs, defaultValue, onValueChange }: BlackTabsPr
         xl: '0 20px 25px -5px rgb(0 0 0 / 0.1)',
         '2xl': '0 25px 50px -12px rgb(0 0 0 / 0.25)'
       };
-      styles.boxShadow = shadows[elementState.shadow] || 'none';
+      styles.boxShadow = shadows[style.shadow];
     }
-    
-    // Transform
+
     const transforms: string[] = [];
-    if (elementState.rotate !== 0) transforms.push(`rotate(${elementState.rotate}deg)`);
-    if (elementState.scale !== 100) transforms.push(`scale(${elementState.scale / 100})`);
-    if (elementState.translateX !== 0) transforms.push(`translateX(${elementState.translateX}px)`);
-    if (elementState.translateY !== 0) transforms.push(`translateY(${elementState.translateY}px)`);
-    if (elementState.skewX !== 0) transforms.push(`skewX(${elementState.skewX}deg)`);
-    if (elementState.skewY !== 0) transforms.push(`skewY(${elementState.skewY}deg)`);
+    if (style.transform.rotate !== 0) transforms.push(`rotate(${style.transform.rotate}deg)`);
+    if (style.transform.scale !== 100) transforms.push(`scale(${style.transform.scale / 100})`);
+    if (style.transform.x !== 0) transforms.push(`translateX(${style.transform.x}px)`);
+    if (style.transform.y !== 0) transforms.push(`translateY(${style.transform.y}px)`);
     if (transforms.length > 0) styles.transform = transforms.join(' ');
-    
+
     return styles;
   }, [elementState]);
 
@@ -84,14 +76,10 @@ export const BlackTabs = ({ id, tabs, defaultValue, onValueChange }: BlackTabsPr
     <div
       onClick={handleContainerClick}
       className={cn(
-        "inline-flex p-1 gap-1 transition-all duration-200 cursor-pointer",
+        "inline-flex gap-1 transition-all duration-200 cursor-pointer",
         isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background"
       )}
-      style={{
-        backgroundColor: elementState?.bgColor || '#0a0a0a',
-        borderRadius: `${elementState?.borderRadius.all || 12}px`,
-        ...dynamicStyles
-      }}
+      style={dynamicStyles}
     >
       {tabs.map((tab) => (
         <button
@@ -107,14 +95,8 @@ export const BlackTabs = ({ id, tabs, defaultValue, onValueChange }: BlackTabsPr
               : "text-neutral-400 hover:text-white hover:bg-white/10"
           )}
           style={{
-            color: activeTab === tab.value 
-              ? '#000000' 
-              : elementState?.textColor || '#a3a3a3',
-            fontFamily: elementState?.typography.font === 'mono' ? 'monospace' : 'inherit',
-            fontWeight: elementState?.typography.weight === 'bold' ? 700 
-              : elementState?.typography.weight === 'semibold' ? 600 
-              : elementState?.typography.weight === 'medium' ? 500 : 400,
-            fontSize: `${elementState?.typography.size || 14}px`
+            fontSize: elementState ? `${elementState.style.typography.size}px` : '14px',
+            fontWeight: elementState?.style.typography.weight || '500'
           }}
         >
           {tab.label}
@@ -139,17 +121,13 @@ export const BlackTab = ({ id, children, active, onClick }: SimpleTabProps) => {
   const isSelected = selectedElement?.id === id;
 
   useEffect(() => {
-    registerElement(id, {
-      tag: 'button',
-      textContent: typeof children === 'string' ? children : 'Tab',
-      bgColor: active ? '#ffffff' : '#0a0a0a',
-      textColor: active ? '#000000' : '#a3a3a3',
-      padding: { l: '4', t: '2', r: '4', b: '2' },
-      borderRadius: { all: 8, t: 8, r: 8, b: 8, l: 8 },
-      typography: { font: 'inter', weight: 'medium', tracking: 'normal', size: '14' },
-      elementId: id
+    registerElement(id, 'button', `Tab - ${id}`, {
+      background: { color: active ? '#ffffff' : '#0a0a0a', opacity: 100 },
+      typography: { font: 'Inter', weight: '500', size: 14 },
+      border: { radius: 8 },
+      padding: { l: 16, t: 8, r: 16, b: 8 }
     });
-  }, [id, active]);
+  }, [id, active, registerElement]);
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -157,21 +135,27 @@ export const BlackTab = ({ id, children, active, onClick }: SimpleTabProps) => {
     onClick?.();
   };
 
-  const dynamicStyles = useMemo(() => {
-    if (!elementState) return {};
-    
+  const dynamicStyles = useMemo((): React.CSSProperties => {
+    if (!elementState) {
+      return {
+        backgroundColor: active ? '#ffffff' : '#0a0a0a',
+        color: active ? '#000000' : '#a3a3a3',
+        borderRadius: '8px'
+      };
+    }
+
+    const { style } = elementState;
     const styles: React.CSSProperties = {
-      backgroundColor: elementState.bgColor || (active ? '#ffffff' : '#0a0a0a'),
-      color: elementState.textColor || (active ? '#000000' : '#a3a3a3'),
-      borderRadius: `${elementState.borderRadius.all || 8}px`,
-      opacity: elementState.opacity / 100,
-      fontSize: `${elementState.typography.size || 14}px`,
-      fontWeight: elementState.typography.weight === 'bold' ? 700 
-        : elementState.typography.weight === 'semibold' ? 600 
-        : elementState.typography.weight === 'medium' ? 500 : 400,
+      backgroundColor: style.background.color || (active ? '#ffffff' : '#0a0a0a'),
+      color: active ? '#000000' : '#a3a3a3',
+      borderRadius: `${style.border.radius}px`,
+      opacity: style.background.opacity / 100,
+      fontSize: `${style.typography.size}px`,
+      fontWeight: style.typography.weight,
+      padding: `${style.padding.t}px ${style.padding.r}px ${style.padding.b}px ${style.padding.l}px`
     };
 
-    if (elementState.shadow !== 'none') {
+    if (style.shadow !== 'none') {
       const shadows: Record<string, string> = {
         sm: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
         md: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
@@ -179,12 +163,12 @@ export const BlackTab = ({ id, children, active, onClick }: SimpleTabProps) => {
         xl: '0 20px 25px -5px rgb(0 0 0 / 0.1)',
         '2xl': '0 25px 50px -12px rgb(0 0 0 / 0.25)'
       };
-      styles.boxShadow = shadows[elementState.shadow];
+      styles.boxShadow = shadows[style.shadow];
     }
 
     const transforms: string[] = [];
-    if (elementState.rotate !== 0) transforms.push(`rotate(${elementState.rotate}deg)`);
-    if (elementState.scale !== 100) transforms.push(`scale(${elementState.scale / 100})`);
+    if (style.transform.rotate !== 0) transforms.push(`rotate(${style.transform.rotate}deg)`);
+    if (style.transform.scale !== 100) transforms.push(`scale(${style.transform.scale / 100})`);
     if (transforms.length > 0) styles.transform = transforms.join(' ');
 
     return styles;
@@ -194,12 +178,12 @@ export const BlackTab = ({ id, children, active, onClick }: SimpleTabProps) => {
     <button
       onClick={handleClick}
       className={cn(
-        "px-4 py-2 text-sm font-medium transition-all duration-200",
+        "text-sm font-medium transition-all duration-200",
         isSelected && "ring-2 ring-primary ring-offset-2"
       )}
       style={dynamicStyles}
     >
-      {elementState?.textContent || children}
+      {elementState?.content || children}
     </button>
   );
 };
