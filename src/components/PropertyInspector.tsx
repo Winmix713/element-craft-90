@@ -22,18 +22,6 @@ interface PropertyInspectorProps {
 
 const STORAGE_KEY = 'property-inspector-position';
 
-const getInitialPosition = () => {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      return JSON.parse(saved);
-    }
-  } catch (e) {
-    console.error('Failed to parse saved position:', e);
-  }
-  return { x: window.innerWidth - 360, y: 50 };
-};
-
 export const PropertyInspector = ({
   isVisible,
   onClose,
@@ -41,10 +29,24 @@ export const PropertyInspector = ({
   onElementUpdate,
 }: PropertyInspectorProps) => {
   const [activeTab, setActiveTab] = useState<TabMode>('EDIT');
-  const [position, setPosition] = useState(getInitialPosition);
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
   const [elementContent, setElementContent] = useState(selectedElement?.content || '');
   const [codeText, setCodeText] = useState('');
   const { toast } = useToast();
+
+  // Initialize position on client side
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        setPosition(JSON.parse(saved));
+      } else {
+        setPosition({ x: window.innerWidth - 360, y: 50 });
+      }
+    } catch (e) {
+      setPosition({ x: window.innerWidth - 360, y: 50 });
+    }
+  }, []);
 
   useEffect(() => {
     if (selectedElement) {
@@ -105,7 +107,7 @@ export const PropertyInspector = ({
     onElementUpdate?.({ className: newClasses });
   };
 
-  if (!isVisible) return null;
+  if (!isVisible || !position) return null;
 
   const elementTag = selectedElement?.type || 'button';
   const elementId = selectedElement?.id || '#element-id';
