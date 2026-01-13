@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 
 export interface InspectorState {
   elementId: string;
@@ -34,6 +34,8 @@ export interface InspectorState {
     perspective: number;
   };
   opacity: number;
+  blur?: number;
+  backdropBlur?: number;
   breakpoint: 'auto' | 'base' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 }
 
@@ -87,6 +89,8 @@ const defaultState: InspectorState = {
     perspective: 0,
   },
   opacity: 100,
+  blur: 0,
+  backdropBlur: 0,
   breakpoint: 'auto',
 };
 
@@ -100,6 +104,7 @@ export const useInspector = () => {
   return context;
 };
 
+// Memoized Tailwind generator to avoid recalculation on every render
 const generateTailwindClasses = (state: InspectorState): string => {
   const classes: string[] = [];
   const bp = state.breakpoint === 'auto' || state.breakpoint === 'base' ? '' : `${state.breakpoint}:`;
@@ -119,17 +124,21 @@ const generateTailwindClasses = (state: InspectorState): string => {
   // Size
   if (state.size.width) classes.push(`${bp}w-[${state.size.width}px]`);
   if (state.size.height) classes.push(`${bp}h-[${state.size.height}px]`);
+  if (state.size.maxWidth) classes.push(`${bp}max-w-[${state.size.maxWidth}px]`);
+  if (state.size.maxHeight) classes.push(`${bp}max-h-[${state.size.maxHeight}px]`);
 
   // Typography
   if (state.typography.fontSize) classes.push(`${bp}text-[${state.typography.fontSize}px]`);
   if (state.typography.fontWeight) classes.push(`${bp}font-${state.typography.fontWeight}`);
   if (state.typography.letterSpacing) classes.push(`${bp}tracking-${state.typography.letterSpacing}`);
+  if (state.typography.lineHeight) classes.push(`${bp}leading-${state.typography.lineHeight}`);
+  if (state.typography.textAlign) classes.push(`${bp}text-${state.typography.textAlign}`);
 
   // Transforms
   if (state.transforms.translateX !== 0) classes.push(`${bp}translate-x-[${state.transforms.translateX}px]`);
   if (state.transforms.translateY !== 0) classes.push(`${bp}translate-y-[${state.transforms.translateY}px]`);
   if (state.transforms.rotate !== 0) classes.push(`${bp}rotate-[${state.transforms.rotate}deg]`);
-  if (state.transforms.scale !== 100) classes.push(`${bp}scale-[${state.transforms.scale / 100}]`);
+  if (state.transforms.scale !== 100) classes.push(`${bp}scale-[${(state.transforms.scale / 100).toFixed(2)}]`);
   if (state.transforms.skewX !== 0) classes.push(`${bp}skew-x-[${state.transforms.skewX}deg]`);
   if (state.transforms.skewY !== 0) classes.push(`${bp}skew-y-[${state.transforms.skewY}deg]`);
 
@@ -140,7 +149,11 @@ const generateTailwindClasses = (state: InspectorState): string => {
   if (state.transforms3d.perspective !== 0) classes.push(`${bp}[perspective:${state.transforms3d.perspective * 100}px]`);
 
   // Opacity
-  if (state.opacity !== 100) classes.push(`${bp}opacity-[${state.opacity / 100}]`);
+  if (state.opacity !== 100) classes.push(`${bp}opacity-[${(state.opacity / 100).toFixed(2)}]`);
+
+  // Filters
+  if (state.blur && state.blur > 0) classes.push(`${bp}blur-[${state.blur}px]`);
+  if (state.backdropBlur && state.backdropBlur > 0) classes.push(`${bp}backdrop-blur-[${state.backdropBlur}px]`);
 
   // Background
   if (state.background.color) classes.push(`${bp}bg-[${state.background.color}]`);
@@ -150,39 +163,63 @@ const generateTailwindClasses = (state: InspectorState): string => {
   if (state.border.width) classes.push(`${bp}border-[${state.border.width}px]`);
   if (state.border.radius) classes.push(`${bp}rounded-[${state.border.radius}px]`);
 
-  return classes.join(' ');
+  return classes.filter((cls, i, arr) => arr.indexOf(cls) === i).join(' ');
 };
 
 const generateHTMLCode = (state: InspectorState, tailwind: string): string => {
   const tag = state.elementTag;
   const content = state.textContent;
   const link = state.link;
+  const classes = tailwind.trim();
 
   if (link) {
-    return `<a href="${link}">\n  <${tag} class="${tailwind}">${content}</${tag}>\n</a>`;
+    return `<a href="${link}">\n  <${tag} class="${classes}">${content}</${tag}>\n</a>`;
   }
-  return `<${tag} class="${tailwind}">${content}</${tag}>`;
+  return `<${tag} class="${classes}">${content}</${tag}>`;
 };
+
+// Debounce timer constant
+const LOCALSTORAGE_DEBOUNCE_MS = 300;
 
 export const InspectorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<InspectorState>(() => {
-    const saved = localStorage.getItem('inspector-state');
-    return saved ? { ...defaultState, ...JSON.parse(saved) } : defaultState;
+    if (typeof window === 'undefined') return defaultState;
+    try {
+      const saved = localStorage.getItem('inspector-state');
+      return saved ? { ...defaultState, ...JSON.parse(saved) } : defaultState;
+    } catch (error) {
+      console.error('Failed to load inspector state from localStorage:', error);
+      return defaultState;
+    }
   });
-  
+
   const [history, setHistory] = useState<InspectorState[]>([]);
+  const debounceTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Save state to localStorage with debounce
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      localStorage.setItem('inspector-state', JSON.stringify(state));
-    }, 300);
-    return () => clearTimeout(timeoutId);
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    debounceTimerRef.current = setTimeout(() => {
+      try {
+        localStorage.setItem('inspector-state', JSON.stringify(state));
+      } catch (error) {
+        console.error('Failed to save inspector state to localStorage:', error);
+      }
+    }, LOCALSTORAGE_DEBOUNCE_MS);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
   }, [state]);
 
   const updateState = useCallback(<K extends keyof InspectorState>(key: K, value: InspectorState[K]) => {
     setState(prev => {
-      setHistory(h => [...h.slice(-19), prev]); // Keep last 20 states
+      setHistory(h => [...h.slice(-19), prev]);
       return { ...prev, [key]: value };
     });
   }, []);
@@ -207,7 +244,11 @@ export const InspectorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const resetState = useCallback(() => {
     setHistory(h => [...h.slice(-19), state]);
     setState(defaultState);
-    localStorage.removeItem('inspector-state');
+    try {
+      localStorage.removeItem('inspector-state');
+    } catch (error) {
+      console.error('Failed to clear inspector state from localStorage:', error);
+    }
   }, [state]);
 
   const undo = useCallback(() => {
@@ -218,23 +259,25 @@ export const InspectorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [history]);
 
-  const generatedTailwind = generateTailwindClasses(state);
-  const generatedCode = generateHTMLCode(state, state.tailwindClasses || generatedTailwind);
+  // Memoize generated values to prevent unnecessary recalculations
+  const generatedTailwind = useMemo(() => generateTailwindClasses(state), [state]);
+  const generatedCode = useMemo(() => generateHTMLCode(state, state.tailwindClasses || generatedTailwind), [state, generatedTailwind]);
+  const canUndo = useMemo(() => history.length > 0, [history.length]);
+
+  const contextValue = useMemo<InspectorContextType>(() => ({
+    state,
+    updateState,
+    updateNestedState,
+    generatedCode,
+    generatedTailwind,
+    resetState,
+    history,
+    undo,
+    canUndo,
+  }), [state, updateState, updateNestedState, generatedCode, generatedTailwind, resetState, history, undo, canUndo]);
 
   return (
-    <InspectorContext.Provider
-      value={{
-        state,
-        updateState,
-        updateNestedState,
-        generatedCode,
-        generatedTailwind,
-        resetState,
-        history,
-        undo,
-        canUndo: history.length > 0,
-      }}
-    >
+    <InspectorContext.Provider value={contextValue}>
       {children}
     </InspectorContext.Provider>
   );
