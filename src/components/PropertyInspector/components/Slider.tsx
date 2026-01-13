@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 
 interface SliderProps {
   icon: React.ReactNode;
@@ -20,24 +20,42 @@ export const Slider: React.FC<SliderProps> = ({
   max,
   unit,
   valueLabel,
-}) => (
-  <div className="-space-y-1.5">
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-1">
-        {icon}
-        <span className="text-[10px] font-medium text-muted-foreground">{label}</span>
+}) => {
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange(Number(e.target.value));
+  }, [onChange]);
+
+  const displayValue = valueLabel || `${value}${unit}`;
+  const percentage = ((value - min) / (max - min)) * 100;
+
+  return (
+    <div className="-space-y-1.5">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1">
+          {icon}
+          <span className="text-[10px] font-medium text-muted-foreground">{label}</span>
+        </div>
+        <span className="text-[10px] text-muted-foreground" aria-live="polite">
+          {displayValue}
+        </span>
       </div>
-      <span className="text-[10px] text-muted-foreground">
-        {valueLabel || `${value}${unit}`}
-      </span>
+      <div className="relative">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          value={value}
+          onChange={handleChange}
+          className="w-full h-1 bg-secondary rounded-lg appearance-none cursor-pointer slider-input"
+          style={{
+            background: `linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary)) ${percentage}%, hsl(var(--secondary)) ${percentage}%, hsl(var(--secondary)) 100%)`,
+          }}
+          aria-label={label}
+          aria-valuemin={min}
+          aria-valuemax={max}
+          aria-valuenow={value}
+        />
+      </div>
     </div>
-    <input
-      type="range"
-      min={min}
-      max={max}
-      value={value}
-      onChange={(e) => onChange(Number(e.target.value))}
-      className="w-full h-1 bg-secondary rounded-lg appearance-none cursor-pointer slider-thumb"
-    />
-  </div>
-);
+  );
+};
