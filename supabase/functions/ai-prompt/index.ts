@@ -104,12 +104,12 @@ serve(async (req) => {
       hasState: !!requestData.currentState
     });
 
-    // Get API key
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY is not configured");
+    // Get Groq API key
+    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+    if (!GROQ_API_KEY) {
+      console.error("GROQ_API_KEY is not configured");
       return new Response(
-        JSON.stringify({ error: "Server configuration error" }),
+        JSON.stringify({ error: "Server configuration error: Missing API key" }),
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -117,15 +117,16 @@ serve(async (req) => {
       );
     }
 
-    // Call AI gateway
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Call Groq API (OpenAI-compatible endpoint)
+    // Models available: mixtral-8x7b-32768, llama2-70b-4096, gemma-7b-it
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${GROQ_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: requestData.model || "google/gemini-3-flash-preview",
+        model: requestData.model || "mixtral-8x7b-32768",
         messages: [
           { role: "system", content: generateSystemPrompt(requestData.currentState) },
           { role: "user", content: requestData.prompt },
