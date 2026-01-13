@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   Laptop, UnfoldHorizontal, UnfoldVertical, Scan, Square, Eye, Image, Move,
   Zap, RotateCw, Maximize, Smartphone, Monitor, Tablet
@@ -64,8 +64,60 @@ const LETTER_SPACINGS = [
   { value: 'widest', label: 'Widest' },
 ];
 
+const INPUT_DEBOUNCE_MS = 100;
+
+// Debounced input hook for better performance
+const useDebouncedInput = (value: string, onValueChange: (val: string) => void, delayMs: number = INPUT_DEBOUNCE_MS) => {
+  const [localValue, setLocalValue] = useState(value);
+  const debounceTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  React.useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+
+  const handleChange = useCallback((newValue: string) => {
+    setLocalValue(newValue);
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    debounceTimerRef.current = setTimeout(() => {
+      onValueChange(newValue);
+    }, delayMs);
+  }, [onValueChange, delayMs]);
+
+  React.useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
+
+  return [localValue, handleChange] as const;
+};
+
 export const EditTab: React.FC = () => {
   const { state, updateState, updateNestedState } = useInspector();
+  const [expandedSections, setExpandedSections] = useState<string[]>([
+    'family', 'link', 'text', 'tailwind', 'margin', 'padding', 'size',
+    'typography', 'appearance', 'background', 'transforms', 'transforms3d'
+  ]);
+
+  const handleToggleSection = useCallback((value: string) => {
+    setExpandedSections(prev =>
+      prev.includes(value)
+        ? prev.filter(s => s !== value)
+        : [...prev, value]
+    );
+  }, []);
+
+  const breakpointLabel = useMemo(() => {
+    return state.breakpoint === 'auto'
+      ? 'Auto Breakpoint'
+      : `${state.breakpoint.toUpperCase()} Breakpoint`;
+  }, [state.breakpoint]);
 
   return (
     <div className="space-y-3">
@@ -81,6 +133,8 @@ export const EditTab: React.FC = () => {
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-card text-muted-foreground hover:bg-secondary'
               } ${bp.value !== 'auto' ? 'border-l border-border' : ''}`}
+              aria-pressed={state.breakpoint === bp.value}
+              title={`Select ${bp.label} breakpoint`}
             >
               {bp.label}
             </button>
@@ -88,13 +142,11 @@ export const EditTab: React.FC = () => {
         </div>
         <span className="text-[10px] text-muted-foreground ml-2 flex items-center gap-1">
           <Laptop className="w-3 h-3" />
-          <span>
-            {state.breakpoint === 'auto' ? 'Auto Breakpoint' : `${state.breakpoint.toUpperCase()} Breakpoint`}
-          </span>
+          <span>{breakpointLabel}</span>
         </span>
       </div>
 
-      <Accordion type="multiple" defaultValue={['family', 'link', 'text', 'tailwind', 'margin', 'padding', 'size', 'typography', 'appearance', 'background', 'transforms', 'transforms3d']} className="space-y-0">
+      <Accordion type="multiple" value={expandedSections} onValueChange={setExpandedSections} className="space-y-0">
         {/* Family Elements */}
         <AccordionItem value="family" className="border-b-0">
           <AccordionTrigger className="py-2 hover:no-underline text-xs font-medium text-muted-foreground">
@@ -125,13 +177,7 @@ export const EditTab: React.FC = () => {
             Link
           </AccordionTrigger>
           <AccordionContent className="pt-1 pb-3">
-            <Input
-              type="text"
-              placeholder="/page or url..."
-              value={state.link}
-              onChange={(e) => updateState('link', e.target.value)}
-              className="h-8 text-xs"
-            />
+            <LinkInputField value={state.link} onChange={(v) => updateState('link', v)} />
           </AccordionContent>
         </AccordionItem>
 
@@ -141,13 +187,7 @@ export const EditTab: React.FC = () => {
             Text Content
           </AccordionTrigger>
           <AccordionContent className="pt-1 pb-3">
-            <Textarea
-              placeholder="Enter text content..."
-              rows={1}
-              className="resize-none text-xs"
-              value={state.textContent}
-              onChange={(e) => updateState('textContent', e.target.value)}
-            />
+            <TextContentField value={state.textContent} onChange={(v) => updateState('textContent', v)} />
           </AccordionContent>
         </AccordionItem>
 
@@ -516,5 +556,84 @@ export const EditTab: React.FC = () => {
         </AccordionItem>
       </Accordion>
     </div>
+  );
+};
+
+// Helper components for debounced inputs
+const LinkInputField: React.FC<{ value: string; onChange: (v: string) => void }> = ({ value, onChange }) => {
+  const [localValue, setLocalValue] = useState(value);
+  const debounceTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  React.useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+
+  const handleChange = useCallback((newValue: string) => {
+    setLocalValue(newValue);
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    debounceTimerRef.current = setTimeout(() => {
+      onChange(newValue);
+    }, INPUT_DEBOUNCE_MS);
+  }, [onChange]);
+
+  React.useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
+
+  return (
+    <Input
+      type="text"
+      placeholder="/page or url..."
+      value={localValue}
+      onChange={(e) => handleChange(e.target.value)}
+      className="h-8 text-xs"
+    />
+  );
+};
+
+const TextContentField: React.FC<{ value: string; onChange: (v: string) => void }> = ({ value, onChange }) => {
+  const [localValue, setLocalValue] = useState(value);
+  const debounceTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  React.useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+
+  const handleChange = useCallback((newValue: string) => {
+    setLocalValue(newValue);
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    debounceTimerRef.current = setTimeout(() => {
+      onChange(newValue);
+    }, INPUT_DEBOUNCE_MS);
+  }, [onChange]);
+
+  React.useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
+
+  return (
+    <Textarea
+      placeholder="Enter text content..."
+      rows={1}
+      className="resize-none text-xs"
+      value={localValue}
+      onChange={(e) => handleChange(e.target.value)}
+    />
   );
 };
