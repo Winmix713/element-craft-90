@@ -12,10 +12,9 @@ import { useInspector } from '../InspectorContext';
 import { toast } from 'sonner';
 
 const AI_MODELS = [
-  { value: 'google/gemini-3-flash-preview', label: 'Gemini Flash' },
-  { value: 'google/gemini-2.5-pro', label: 'Gemini Pro' },
-  { value: 'openai/gpt-5', label: 'GPT-5' },
-  { value: 'openai/gpt-5-mini', label: 'GPT-5 Mini' },
+  { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
+  { value: 'llama2-70b-4096', label: 'Llama 2 70B' },
+  { value: 'gemma-7b-it', label: 'Gemma 7B' },
 ] as const;
 
 type AIModel = typeof AI_MODELS[number];
@@ -69,28 +68,53 @@ export const PromptTab: React.FC = () => {
     abortControllerRef.current = new AbortController();
 
     try {
-      const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-prompt`;
+      // Groq API endpoint (OpenAI-compatible)
+      const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+      const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 
-      if (!CHAT_URL || !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) {
-        toast.error('Missing API configuration');
+      if (!GROQ_API_KEY) {
+        toast.error('Groq API key not configured');
+        console.error('Missing VITE_GROQ_API_KEY environment variable');
         setIsLoading(false);
         return;
       }
 
-      const resp = await fetch(CHAT_URL, {
+      // System prompt for Tailwind CSS expertise
+      const systemPrompt = `You are a Tailwind CSS expert assistant. Your job is to help modify UI element styles based on user requests.
+
+Current element state:
+- Element tag: ${state.elementTag}
+- Current Tailwind classes: ${state.tailwindClasses}
+- Text content: ${state.textContent}
+
+When the user describes a change, respond with ONLY a valid JSON object:
+{
+  "tailwindClasses": "the complete updated Tailwind class string",
+  "textContent": "the updated text content (only include if changed)"
+}
+
+Guidelines:
+- Preserve existing classes unless they conflict with the requested change
+- Use modern Tailwind CSS best practices (v3+)
+- Ensure responsive design principles
+- Add appropriate hover/focus states when relevant
+- Always respond with valid JSON, no markdown, no code blocks, no explanations`;
+
+      const resp = await fetch(GROQ_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${GROQ_API_KEY}`,
         },
         body: JSON.stringify({
-          prompt: promptText,
           model: selectedModel.value,
-          currentState: {
-            element: state.elementTag,
-            classes: state.tailwindClasses,
-            textContent: state.textContent,
-          },
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: promptText },
+          ],
+          stream: true,
+          temperature: 0.7,
+          max_tokens: 500,
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -101,16 +125,18 @@ export const PromptTab: React.FC = () => {
         return;
       }
 
-      if (resp.status === 402) {
-        toast.error('Credits exhausted. Please add funds to your Lovable AI account.');
+      if (resp.status === 401) {
+        toast.error('Invalid Groq API key. Please check your configuration.');
         setIsLoading(false);
         return;
       }
 
       if (!resp.ok) {
         const errorText = await resp.text();
-        console.error('AI API error:', resp.status, errorText);
-        throw new Error(`API error: ${resp.status}`);
+        console.error('Groq API error:', resp.status, errorText);
+        toast.error(`API error: ${resp.status}. Check console for details.`);
+        setIsLoading(false);
+        return;
       }
 
       if (!resp.body) {
