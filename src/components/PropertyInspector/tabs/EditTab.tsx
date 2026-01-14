@@ -22,7 +22,6 @@ import {
 import { useInspector } from '../InspectorContext';
 import { ColorPicker } from '../components/ColorPicker';
 import { GradientColorPicker } from '../components/GradientColorPicker';
-import { Canvas } from '../components/Canvas';
 import { Slider } from '../components/Slider';
 import { IconInput, LabeledInput } from '../components/IconInput';
 
