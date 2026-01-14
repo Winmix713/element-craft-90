@@ -266,4 +266,5 @@ export const PropertyInspector: React.FC<{ onClose?: () => void }> = ({ onClose 
   );
 };
 
+export { InspectorProvider } from './InspectorContext';
 export default PropertyInspector;
