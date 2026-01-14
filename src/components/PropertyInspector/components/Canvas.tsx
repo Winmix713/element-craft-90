@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { useInspector, InspectorState } from '../InspectorContext';
+import { useInspector } from '../InspectorContext';
 
 interface CanvasProps {
   className?: string;
