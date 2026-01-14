@@ -1,6 +1,5 @@
-import { PropertyInspector } from "@/components/PropertyInspector";
+import { PropertyInspector, InspectorProvider } from "@/components/PropertyInspector";
 import { Canvas } from "@/components/PropertyInspector/components/Canvas";
-import { InspectorProvider } from "@/components/PropertyInspector/InspectorContext";
 
 const Index = () => {
   return (
