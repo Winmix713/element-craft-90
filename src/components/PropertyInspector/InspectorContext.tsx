@@ -17,7 +17,7 @@ export interface InspectorState {
     lineHeight: string;
     textAlign: string;
   };
-  background: { color: string; image: string };
+  background: { color: string | any; image: string };
   border: { color: string; width: string; radius: string };
   transforms: {
     translateX: number;
