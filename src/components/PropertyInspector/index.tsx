@@ -80,13 +80,18 @@ const PropertyInspectorContent: React.FC<{ onClose?: () => void }> = ({ onClose 
   }, [generatedCode]);
 
   const tabContent = useMemo(() => {
-    switch (activeTab) {
-      case 'PROMPT':
-        return <PromptTab />;
-      case 'CODE':
-        return <CodeTab />;
-      default:
-        return <EditTab />;
+    try {
+      switch (activeTab) {
+        case 'PROMPT':
+          return <PromptTab />;
+        case 'CODE':
+          return <CodeTab />;
+        default:
+          return <EditTab />;
+      }
+    } catch (error) {
+      console.error('Tab render error:', error);
+      return <div className="p-4 text-xs text-red-500">Error loading tab</div>;
     }
   }, [activeTab]);
 
