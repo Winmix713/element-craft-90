@@ -251,20 +251,18 @@ export const PropertyInspector: React.FC<{ onClose?: () => void }> = ({ onClose 
   }, []);
 
   return (
-    <InspectorProvider>
-      <div
-        className="fixed"
-        style={{
-          zIndex: 9999,
-          left: isClient ? `${position.x}px` : 'auto',
-          right: isClient ? 'auto' : '20px',
-          top: isClient ? `${position.y}px` : '60px',
-          opacity: isClient ? 1 : 0.7,
-        }}
-      >
-        <PropertyInspectorContent onClose={onClose} />
-      </div>
-    </InspectorProvider>
+    <div
+      className="fixed"
+      style={{
+        zIndex: 9999,
+        left: isClient ? `${position.x}px` : 'auto',
+        right: isClient ? 'auto' : '20px',
+        top: isClient ? `${position.y}px` : '60px',
+        opacity: isClient ? 1 : 0.7,
+      }}
+    >
+      <PropertyInspectorContent onClose={onClose} />
+    </div>
   );
 };
 
