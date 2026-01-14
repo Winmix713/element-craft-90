@@ -231,12 +231,12 @@ export const PropertyInspector: React.FC<{ onClose?: () => void }> = ({ onClose 
       if (saved) {
         setPosition(JSON.parse(saved));
       } else {
-        // Default position: center-right of screen
-        setPosition({ x: Math.max(window.innerWidth - 400, 20), y: 50 });
+        // Default position: right side, top area
+        setPosition({ x: Math.max(window.innerWidth - 380, 20), y: 60 });
       }
     } catch (error) {
       console.error('Failed to load inspector position:', error);
-      setPosition({ x: Math.max(window.innerWidth - 400, 20), y: 50 });
+      setPosition({ x: Math.max(window.innerWidth - 380, 20), y: 60 });
     }
   }, []);
 
