@@ -216,7 +216,6 @@ const TabButton: React.FC<{
 TabButton.displayName = 'TabButton';
 
 export const PropertyInspector: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
-  const nodeRef = React.useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isClient, setIsClient] = useState(false);
 
