@@ -216,6 +216,7 @@ const TabButton: React.FC<{
 TabButton.displayName = 'TabButton';
 
 export const PropertyInspector: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
+  const nodeRef = React.useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isClient, setIsClient] = useState(false);
 
@@ -226,12 +227,12 @@ export const PropertyInspector: React.FC<{ onClose?: () => void }> = ({ onClose 
       if (saved) {
         setPosition(JSON.parse(saved));
       } else {
-        // Default position: right side of screen
-        setPosition({ x: Math.max(window.innerWidth - 360, 20), y: 50 });
+        // Default position: center-right of screen
+        setPosition({ x: Math.max(window.innerWidth - 400, 20), y: 50 });
       }
     } catch (error) {
       console.error('Failed to load inspector position:', error);
-      setPosition({ x: Math.max(window.innerWidth - 360, 20), y: 50 });
+      setPosition({ x: Math.max(window.innerWidth - 400, 20), y: 50 });
     }
   }, []);
 
@@ -253,9 +254,9 @@ export const PropertyInspector: React.FC<{ onClose?: () => void }> = ({ onClose 
         handle=".inspector-drag-handle"
         position={position}
         onStop={handleDrag}
-        bounds="parent"
+        nodeRef={nodeRef}
       >
-        <div className="fixed z-50">
+        <div ref={nodeRef} className="fixed z-50">
           <PropertyInspectorContent onClose={onClose} />
         </div>
       </Draggable>
