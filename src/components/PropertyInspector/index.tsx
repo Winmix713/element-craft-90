@@ -80,13 +80,18 @@ const PropertyInspectorContent: React.FC<{ onClose?: () => void }> = ({ onClose 
   }, [generatedCode]);
 
   const tabContent = useMemo(() => {
-    switch (activeTab) {
-      case 'PROMPT':
-        return <PromptTab />;
-      case 'CODE':
-        return <CodeTab />;
-      default:
-        return <EditTab />;
+    try {
+      switch (activeTab) {
+        case 'PROMPT':
+          return <PromptTab />;
+        case 'CODE':
+          return <CodeTab />;
+        default:
+          return <EditTab />;
+      }
+    } catch (error) {
+      console.error('Tab render error:', error);
+      return <div className="p-4 text-xs text-red-500">Error loading tab</div>;
     }
   }, [activeTab]);
 
@@ -226,12 +231,12 @@ export const PropertyInspector: React.FC<{ onClose?: () => void }> = ({ onClose 
       if (saved) {
         setPosition(JSON.parse(saved));
       } else {
-        // Default position: right side of screen
-        setPosition({ x: Math.max(window.innerWidth - 360, 20), y: 50 });
+        // Default position: right side, top area
+        setPosition({ x: Math.max(window.innerWidth - 380, 20), y: 60 });
       }
     } catch (error) {
       console.error('Failed to load inspector position:', error);
-      setPosition({ x: Math.max(window.innerWidth - 360, 20), y: 50 });
+      setPosition({ x: Math.max(window.innerWidth - 380, 20), y: 60 });
     }
   }, []);
 
@@ -245,21 +250,19 @@ export const PropertyInspector: React.FC<{ onClose?: () => void }> = ({ onClose 
     }
   }, []);
 
-  if (!isClient) return null;
-
   return (
-    <InspectorProvider>
-      <Draggable
-        handle=".inspector-drag-handle"
-        position={position}
-        onStop={handleDrag}
-        bounds="parent"
-      >
-        <div className="fixed z-50">
-          <PropertyInspectorContent onClose={onClose} />
-        </div>
-      </Draggable>
-    </InspectorProvider>
+    <div
+      className="fixed"
+      style={{
+        zIndex: 9999,
+        left: isClient ? `${position.x}px` : 'auto',
+        right: isClient ? 'auto' : '20px',
+        top: isClient ? `${position.y}px` : '60px',
+        opacity: isClient ? 1 : 0.7,
+      }}
+    >
+      <PropertyInspectorContent onClose={onClose} />
+    </div>
   );
 };
 

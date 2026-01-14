@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/accordion';
 import { useInspector } from '../InspectorContext';
 import { ColorPicker } from '../components/ColorPicker';
+import { GradientColorPicker } from '../components/GradientColorPicker';
 import { Slider } from '../components/Slider';
 import { IconInput, LabeledInput } from '../components/IconInput';
 
@@ -390,13 +391,13 @@ export const EditTab: React.FC = () => {
             Background
           </AccordionTrigger>
           <AccordionContent className="pt-1 pb-3">
-            <div className="grid grid-cols-2 gap-2">
-              <ColorPicker
-                color={state.background.color}
+            <div className="space-y-2">
+              <GradientColorPicker
+                value={state.background.color}
                 onChange={(v) => updateNestedState('background', 'color', v)}
-                label="Color"
+                label="Background"
               />
-              <button className="h-7 flex items-center gap-2 px-2 py-1 text-xs rounded-md border border-border bg-card opacity-50">
+              <button className="w-full h-7 flex items-center gap-2 px-2 py-1 text-xs rounded-md border border-border bg-card opacity-50">
                 <div className="w-4 h-4 rounded border border-border bg-muted flex items-center justify-center">
                   <Image className="w-2.5 h-2.5 text-muted-foreground" />
                 </div>

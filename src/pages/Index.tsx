@@ -1,10 +1,19 @@
-import { PropertyInspector } from "@/components/PropertyInspector";
+import { PropertyInspector, InspectorProvider } from "@/components/PropertyInspector";
+import { Canvas } from "@/components/PropertyInspector/components/Canvas";
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-[hsl(var(--editor-bg))] bg-[image:var(--gradient-editor)] p-8 flex items-center justify-center">
-      <PropertyInspector />
-    </div>
+    <InspectorProvider>
+      <div className="min-h-screen bg-[hsl(var(--editor-bg))] bg-[image:var(--gradient-editor)] p-8 flex items-center justify-between gap-8">
+        {/* Canvas Preview - Left Side */}
+        <div className="flex-1 flex items-center justify-center">
+          <Canvas className="w-full max-w-2xl" />
+        </div>
+
+        {/* Inspector Panel - Right Side */}
+        <PropertyInspector />
+      </div>
+    </InspectorProvider>
   );
 };
 
