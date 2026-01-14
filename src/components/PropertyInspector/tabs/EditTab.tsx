@@ -124,7 +124,8 @@ export const EditTab: React.FC = () => {
   return (
     <div className="space-y-3">
       {/* Canvas Preview */}
-      <Canvas className="mb-4" />
+      {/* Temporarily disabled for debugging */}
+      {/* <Canvas className="mb-4" /> */}
 
       {/* Breakpoint Selector */}
       <div className="flex items-center justify-between">
