@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { InspectorProvider, useInspector } from './InspectorContext';
+import { useInspector } from './InspectorContext';
 import { EditTab } from './tabs/EditTab';
 import { CodeTab } from './tabs/CodeTab';
 import { PromptTab } from './tabs/PromptTab';
@@ -248,18 +248,16 @@ export const PropertyInspector: React.FC<{ onClose?: () => void }> = ({ onClose 
   if (!isClient) return null;
 
   return (
-    <InspectorProvider>
-      <Draggable
-        handle=".inspector-drag-handle"
-        position={position}
-        onStop={handleDrag}
-        bounds="parent"
-      >
-        <div className="fixed z-50">
-          <PropertyInspectorContent onClose={onClose} />
-        </div>
-      </Draggable>
-    </InspectorProvider>
+    <Draggable
+      handle=".inspector-drag-handle"
+      position={position}
+      onStop={handleDrag}
+      bounds="parent"
+    >
+      <div className="fixed z-50">
+        <PropertyInspectorContent onClose={onClose} />
+      </div>
+    </Draggable>
   );
 };
 
