@@ -18,17 +18,17 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '' }) => {
     if (state.size.maxHeight) style.maxHeight = `${state.size.maxHeight}px`;
 
     // Padding
-    const paddingLeft = state.padding.left ? `${state.padding.left * 0.25}rem` : '0';
-    const paddingTop = state.padding.top ? `${state.padding.top * 0.25}rem` : '0';
-    const paddingRight = state.padding.right ? `${state.padding.right * 0.25}rem` : '0';
-    const paddingBottom = state.padding.bottom ? `${state.padding.bottom * 0.25}rem` : '0';
+    const paddingLeft = state.padding.left ? `${parseFloat(state.padding.left) * 0.25}rem` : '0';
+    const paddingTop = state.padding.top ? `${parseFloat(state.padding.top) * 0.25}rem` : '0';
+    const paddingRight = state.padding.right ? `${parseFloat(state.padding.right) * 0.25}rem` : '0';
+    const paddingBottom = state.padding.bottom ? `${parseFloat(state.padding.bottom) * 0.25}rem` : '0';
     style.padding = `${paddingTop} ${paddingRight} ${paddingBottom} ${paddingLeft}`;
 
     // Margin
-    const marginLeft = state.margin.left ? `${state.margin.left * 0.25}rem` : '0';
-    const marginTop = state.margin.top ? `${state.margin.top * 0.25}rem` : '0';
-    const marginRight = state.margin.right ? `${state.margin.right * 0.25}rem` : '0';
-    const marginBottom = state.margin.bottom ? `${state.margin.bottom * 0.25}rem` : '0';
+    const marginLeft = state.margin.left ? `${parseFloat(state.margin.left) * 0.25}rem` : '0';
+    const marginTop = state.margin.top ? `${parseFloat(state.margin.top) * 0.25}rem` : '0';
+    const marginRight = state.margin.right ? `${parseFloat(state.margin.right) * 0.25}rem` : '0';
+    const marginBottom = state.margin.bottom ? `${parseFloat(state.margin.bottom) * 0.25}rem` : '0';
     style.margin = `${marginTop} ${marginRight} ${marginBottom} ${marginLeft}`;
 
     // Typography
