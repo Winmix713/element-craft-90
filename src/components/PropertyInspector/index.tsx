@@ -249,18 +249,11 @@ export const PropertyInspector: React.FC<{ onClose?: () => void }> = ({ onClose 
   if (!isClient) return null;
 
   return (
-    <Draggable
-      handle=".inspector-drag-handle"
-      position={position}
-      onStop={handleDrag}
-      nodeRef={nodeRef}
-    >
-      <div ref={nodeRef} className="fixed z-50">
-        <InspectorProvider>
-          <PropertyInspectorContent onClose={onClose} />
-        </InspectorProvider>
+    <InspectorProvider>
+      <div className="fixed z-50" style={{ left: `${position.x}px`, top: `${position.y}px` }}>
+        <PropertyInspectorContent onClose={onClose} />
       </div>
-    </Draggable>
+    </InspectorProvider>
   );
 };
 
